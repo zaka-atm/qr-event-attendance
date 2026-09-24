@@ -1,10 +1,12 @@
 // Monta la demo en dist/demo/ a partir del código REAL de web/ más el simulador demo/mock.js.
 //   dist/demo/index.html      portada de la demo (demo/landing.html)
 //   dist/demo/app/            la web de verdad, con config.js sustituido por el simulador
-// Uso: node scripts/build-demo.mjs
+// Uso: node scripts/build-demo.mjs            (para publicar como página de Claude)
+//      node scripts/build-demo.mjs --static   (para GitHub Pages, Cloudflare Pages, Netlify…)
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, extname } from "node:path";
 
+const STATIC = process.argv.includes("--static");
 const root = new URL("..", import.meta.url).pathname;
 const out = join(root, "dist/demo");
 const app = join(out, "app");
@@ -32,6 +34,29 @@ const landing = join(out, "index.html");
 writeFileSync(landing, readFileSync(landing, "utf8")
   .replace(/@font-face\s*\{[^}]*\}\s*/g, "")
   .replace("<style>", '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Instrument+Sans:wght@400..700&display=swap">\n<style>'));
+
+// La portada está escrita como contenido de página de Claude (sin <html>/<head>); para un alojamiento
+// normal se envuelve en un documento completo.
+if (STATIC) {
+  writeFileSync(landing, `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" href="app/checkin/icons/icon.svg" type="image/svg+xml">
+<style>body{margin:0}</style>
+</head>
+<body>
+${readFileSync(landing, "utf8")}
+</body>
+</html>
+`);
+}
+
+// El service worker de la puerta no debe intentar guardar las librerías copiadas (en la demo van por CDN).
+const sw = join(app, "checkin/sw.js");
+writeFileSync(sw, readFileSync(sw, "utf8").replace(/^\s*"(\.\/vendor|\.\.\/assets\/fonts)\/[^"]+",\n/gm, ""));
 
 // Algunos alojamientos no resuelven "carpeta/" a "carpeta/index.html": se enlaza al archivo.
 const rewrites = [
@@ -65,4 +90,4 @@ const files = [];
   }
 })(out);
 writeFileSync(join(root, "dist/demo-files.json"), JSON.stringify(files, null, 2));
-console.log(`dist/demo: ${files.length} archivos`);
+console.log(`dist/demo${STATIC ? " (web estática)" : ""}: ${files.length} archivos`);

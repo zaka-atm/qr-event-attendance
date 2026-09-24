@@ -1,0 +1,42 @@
+# Publica la DEMO (datos de ejemplo, sin Supabase ni emails) en GitHub Pages.
+# Requisito: Settings → Pages → Source: "GitHub Actions".
+# En repositorios privados, GitHub Pages necesita un plan de pago (GitHub Pro, Team o Enterprise).
+name: Publicar demo
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/event-ticketing-app-0p1ga3]
+    paths: ["web/**", "demo/**", "scripts/build-demo.mjs", ".github/workflows/demo-pages.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/build-demo.mjs --static
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

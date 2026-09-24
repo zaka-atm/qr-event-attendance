@@ -9,7 +9,12 @@ Sustituye el sistema de Google Forms + Sheets + Apps Script por una web propia:
 
 Todos los textos para asistentes y equipo están en español.
 
-**Demo con datos de ejemplo:** https://claude.ai/artifact/8LQis7BvwFCMgXW2LqkTp4 (solo la puede abrir quien tenga acceso). Para montarla en local: `node scripts/build-demo.mjs` y sirve `dist/demo/`.
+**Demo con datos de ejemplo:** https://claude.ai/artifact/8LQis7BvwFCMgXW2LqkTp4 (solo la puede abrir quien tenga acceso).
+
+Para publicar la demo en tu propia dirección web:
+- **GitHub Pages** (repositorio público, o privado con GitHub Pro): Settings → Pages → Source: **GitHub Actions**; después Actions → **Publicar demo** → **Run workflow**. La dirección aparece al terminar (`https://<usuario>.github.io/qr-event-attendance/`).
+- **Cloudflare Pages** (gratis, vale con repositorio privado): Workers & Pages → Create → Pages → conectar el repositorio. Comando de build `node scripts/build-demo.mjs --static`, carpeta de salida `dist/demo`.
+- En local: `node scripts/build-demo.mjs --static` y sirve `dist/demo/`.
 
 | Compra | Reservada | Panel de pagos | Escáner | Verde | Ya utilizada | No válida |
 |---|---|---|---|---|---|---|
