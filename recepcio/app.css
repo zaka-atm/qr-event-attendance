@@ -96,6 +96,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .camp input:focus { outline: none; border-color: var(--grana); box-shadow: 0 0 0 4px var(--grana-suau); }
 .camp-clau { position: relative; }
 .camp-clau input { padding-right: 56px; letter-spacing: .04em; }
+/* Indicadors propis del navegador (majúscules a Safari, «mostrar» a Edge): ja hi ha el botó de l'ull */
+.camp-clau input::-webkit-caps-lock-indicator { display: none !important; content: none; }
+.camp-clau input::-webkit-credentials-auto-fill-button { visibility: hidden; display: none !important; pointer-events: none; }
+.camp-clau input::-webkit-contacts-auto-fill-button { visibility: hidden; display: none !important; pointer-events: none; }
+.camp-clau input::-webkit-strong-password-auto-fill-button { display: none !important; }
+.camp-clau input::-ms-reveal, .camp-clau input::-ms-clear { display: none; }
 .veure-codi { position: absolute; right: 6px; top: 7px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--gris); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .veure-codi svg { width: 22px; height: 22px; }
 .veure-codi[aria-pressed="true"] { color: var(--grana); background: var(--grana-suau); }
