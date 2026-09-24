@@ -1,13 +1,12 @@
 // Guarda l'app perquè s'obri encara que no hi hagi cobertura a l'entrada.
 // Les consultes a l'Apps Script no es guarden mai aquí (les dades offline les gestiona app.js).
 // Puja VERSIO cada vegada que canviïs algun fitxer de la llista.
-const VERSIO = "recepcio-v5";
+const VERSIO = "recepcio-v6";
 const FITXERS = [
   "./",
   "./app.css",
   "./app.js",
   "./config.js",
-  "./demo.js",
   "./manifest.webmanifest",
   "./vendor/jsQR-1.4.0.js",
   "./fonts/plus-jakarta-sans.woff2",

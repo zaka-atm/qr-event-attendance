@@ -7,7 +7,9 @@
 
   const CFG = window.RECEPCIO || {};
   const $ = (id) => document.getElementById(id);
-  const TEMPS_API_MS = 9000;          // Apps Script pot trigar uns segons
+  // Apps Script pot trigar uns segons, sobretot la primera consulta després d'estar aturat.
+  const TEMPS_API_MS = { registrar: 15000, cercar: 12000, ping: 12000, sincronitzar: 30000 };
+  const TEMPS_SI_SEMBLA_OFFLINE_MS = 6000;
   const BATEC_MS = 20000;             // cada quant es reintenta la cua / es comprova la connexió
   const SINCRO_MS = 3 * 60000;        // cada quant es refresca la llista per al mode sense connexió
   const MATEIX_CODI_MS = 4000;        // no tornar a llegir el mateix QR just després
@@ -23,7 +25,7 @@
   const K = { sessio: "recepcio-sessio", cache: "recepcio-cache", cua: "recepcio-cua", hist: "recepcio-historial", inc: "recepcio-incidencies" };
 
   const estat = {
-    sessio: guarda.get(K.sessio, null),      // { apiUrl, codi, demo }
+    sessio: guarda.get(K.sessio, null),      // { apiUrl, codi }
     cache: guarda.get(K.cache, null),        // { persones: [{h,n,t,f,r}], a, estadistiques }
     cua: guarda.get(K.cua, []),              // registres pendents d'enviar
     historial: guarda.get(K.hist, []),
@@ -93,17 +95,19 @@
   }
 
   // ------------------------------------------------------------------------
-  // API (Apps Script) — o el simulador en mode demostració
+  // API (Apps Script)
   // ------------------------------------------------------------------------
-  class SenseConnexio extends Error {}
+  class SenseConnexio extends Error {
+    constructor(motiu) { super(motiu); this.temps = motiu === "temps"; }
+  }
 
-  async function api(accio, dades = {}) {
+  async function api(accio, dades = {}, tempsMax = TEMPS_API_MS[accio] ?? 12000) {
     const s = estat.sessio;
     const cos = { accio, codi: s.codi, ...dades };
-    if (s.demo) return window.RecepcioDemo.gestionar(cos);
 
     const ctrl = new AbortController();
-    const temps = setTimeout(() => ctrl.abort(), TEMPS_API_MS);
+    let esgotat = false;
+    const temps = setTimeout(() => { esgotat = true; ctrl.abort(); }, tempsMax);
     let res;
     try {
       // text/plain evita la comprovació prèvia CORS; Apps Script llegeix el JSON igualment.
@@ -115,7 +119,7 @@
         redirect: "follow",
       });
     } catch {
-      throw new SenseConnexio("xarxa");
+      throw new SenseConnexio(esgotat ? "temps" : "xarxa");
     } finally {
       clearTimeout(temps);
     }
@@ -171,7 +175,7 @@
     const boto = $("inici-boto");
     boto.disabled = true;
     boto.querySelector("span").textContent = "Connectant…";
-    estat.sessio = { apiUrl, codi, demo: false };
+    estat.sessio = { apiUrl, codi };
     try {
       const r = await api("ping");
       if (!r.ok) throw new Error(r.error || "error");
@@ -191,39 +195,13 @@
     }
   });
 
-  $("boto-demo").addEventListener("click", async () => {
-    desbloquejarAudio();
-    await carregarDemo();
-    estat.sessio = { apiUrl: "", codi: "demo", demo: true };
-    guarda.set(K.sessio, estat.sessio);
-    entrarEscaner();
-  });
-
-  function carregarDemo() {
-    if (window.RecepcioDemo) return Promise.resolve();
-    return new Promise((ok, ko) => {
-      const s = el("script", { src: "demo.js" });
-      s.onload = ok;
-      s.onerror = ko;
-      document.head.append(s);
-    });
-  }
-
   function entrarEscaner() {
-    const s = estat.sessio;
     $("barra-esdeveniment").textContent = CFG.ESDEVENIMENT || "Congrés Islàmic de Catalunya";
-    $("avis-demo").hidden = !s.demo;
-    $("menu-proves").hidden = !s.demo;
     mostrar("escaner");
     mantenirPantalla();
     pintarEstadistiques(estat.cache?.estadistiques);
     pintarXarxa();
     sincronitzar().then(enviarCua);
-    const simular = guarda.get("recepcio-simular", null); // des de proves.html
-    if (simular) {
-      guarda.del("recepcio-simular");
-      setTimeout(() => processarCodi(simular), 500);
-    }
   }
 
   // ------------------------------------------------------------------------
@@ -290,7 +268,7 @@
       posarEnLinia(true);
       pintarMenu();
     } catch (e) {
-      if (e instanceof SenseConnexio) posarEnLinia(false);
+      if (e instanceof SenseConnexio && !e.temps) posarEnLinia(false);
     }
   }
 
@@ -349,9 +327,10 @@
     estat.ocupat = true;
     $("comprovant").hidden = false;
     try {
-      if (estat.enLinia) {
+      // Sempre es pregunta primer al full; només si no respon es fa servir la llista del mòbil.
+      if (navigator.onLine !== false) {
         try {
-          const r = await api("registrar", { qr, fila, metode });
+          const r = await api("registrar", { qr, fila, metode }, estat.enLinia ? TEMPS_API_MS.registrar : TEMPS_SI_SEMBLA_OFFLINE_MS);
           posarEnLinia(true);
           if (!r.ok) return mostrarResultat({ estat: "error_servidor" });
           actualitzarCache(r);
@@ -415,7 +394,6 @@
     $("res-hora-bloc").hidden = !r.registratA || !(ok || repetit);
     $("res-hora-etiqueta").textContent = ok ? "Hora d'entrada" : "Ja va entrar";
     $("res-hora").textContent = r.registratA ? hora(r.registratA) : "";
-    $("res-offline").hidden = !r.offline;
 
     const textos = {
       correcte: ["Pot passar", "Entrada registrada correctament"],
@@ -618,13 +596,13 @@
     if (text.length < 2) { llista.replaceChildren(); return; }
 
     let resultats = null;
-    if (estat.enLinia) {
+    if (navigator.onLine !== false) {
       $("cerca-nota").textContent = "Cercant…";
       try {
         const r = await api("cercar", { text });
         if (r.ok) resultats = r.resultats.map((x) => ({ ...x, offline: false }));
       } catch (e) {
-        if (e instanceof SenseConnexio) posarEnLinia(false);
+        if (e instanceof SenseConnexio && !e.temps) posarEnLinia(false);
       }
     }
     if (!resultats) {
@@ -755,7 +733,6 @@
   $("sortir-no").addEventListener("click", () => { $("confirmar-sortir").hidden = true; });
   $("sortir-si").addEventListener("click", () => {
     for (const k of Object.values(K)) guarda.del(k);
-    guarda.del("recepcio-demo-db");
     estat.cache = null;
     estat.cua = [];
     estat.historial = [];
@@ -803,13 +780,13 @@
   async function arrencar() {
     carregarLogos();
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    if (estat.sessio?.demo) { estat.sessio = null; guarda.del(K.sessio); } // el mode de prova ja no existeix
     if (estat.sessio) {
       // Si l'adreça de l'Apps Script canvia a config.js, els mòbils ja connectats la fan servir sense tornar a entrar.
-      if (!estat.sessio.demo && CFG.API_URL && estat.sessio.apiUrl !== CFG.API_URL) {
+      if (CFG.API_URL && estat.sessio.apiUrl !== CFG.API_URL) {
         estat.sessio.apiUrl = CFG.API_URL;
         guarda.set(K.sessio, estat.sessio);
       }
-      if (estat.sessio.demo) await carregarDemo().catch(() => {});
       entrarEscaner();
     } else {
       omplirInici(null);

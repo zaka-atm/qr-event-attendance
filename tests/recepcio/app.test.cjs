@@ -1,7 +1,6 @@
 // Prova de l'app de recepció en Chromium, com si fos el mòbil de la recepcionista:
 //  - Navegador A: càmera falsa que mostra un QR real (mateix format d'URL que el doGet) → verd, i després vermell.
 //  - Navegador B: sense càmera: foto del QR, cerca manual, mode sense connexió i sincronització.
-//  - Mode demostració i pàgina de codis de prova.
 // L'Apps Script és el REAL (apps-script/Codi.gs) executat a Node amb fulls simulats.
 //   node tests/recepcio/app.test.cjs     (captures a tests/recepcio/captures/)
 const http = require("node:http");
@@ -23,6 +22,7 @@ const P1 = ["aya@example.com", "Aya El Idrissi", "11111111H", "600000001", "Pens
 const P2 = ["bilal@example.com", "Bilal Chakir", "22222222J", "600000002", "Només dissabte"];
 const P3 = ["salma@example.com", "Salma Haddad", "33333333P", "600000003", "Pensió completa"];
 const P4 = ["nour@example.com", "Nour Bennani", "55555555K", "600000005", "Pensió completa"];
+const P5 = ["hamza@example.com", "Hamza Tazi", "66666666Q", "600000006", "Només dissabte"];
 
 // --- Utilitats ------------------------------------------------------------------------
 function servidor() {
@@ -89,7 +89,7 @@ function pngQR(text) {
 
 async function obrir(navegador, base, backend, errors) {
   const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ca-ES", timezoneId: "Europe/Madrid", serviceWorkers: "block", permissions: ["camera"] });
-  const estat = { offline: false };
+  const estat = { offline: false, retard: 0 };
   // La configuració de prova apunta a l'Apps Script simulat (el camp de l'adreça queda amagat, com en producció).
   await ctx.route(`${base}/config.js`, (route) => route.fulfill({
     contentType: "text/javascript",
@@ -98,6 +98,7 @@ async function obrir(navegador, base, backend, errors) {
   await ctx.route(`${API}*`, async (route) => {
     if (estat.offline) return route.abort("internetdisconnected");
     const req = route.request();
+    if (estat.retard) await new Promise((r) => setTimeout(r, estat.retard));
     assert.equal(req.method(), "POST");
     assert.match(req.headers()["content-type"], /^text\/plain/, "sense preflight CORS");
     route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: backend.peticio(req.postData()) });
@@ -123,7 +124,7 @@ async function main() {
   const errors = [];
   const backend = crearBackend({
     codi: CODI,
-    pagats: [P1, P2, P3, P4],
+    pagats: [P1, P2, P3, P4, P5],
     assistencia: [[new Date(Date.now() - 50 * 60e3), P3[1], P3[2], P3[3], P3[4]]], // registrada amb el doGet antic
   });
 
@@ -168,7 +169,7 @@ async function main() {
   await A.page.screenshot({ path: path.join(CAPTURES, "04-vermell-repetit.png") });
   assert.equal(backend.fulls["Assistència"].files.length, 4, "no es duplica");
   assert.equal(await A.page.locator("#n-registrats").textContent(), "2");
-  assert.equal(await A.page.locator("#n-pagats").textContent(), "4");
+  assert.equal(await A.page.locator("#n-pagats").textContent(), "5");
   console.log("✓ càmera: el resultat es queda fins al botó; el mateix QR després → vermell amb l'hora");
   await navA.close();
 
@@ -205,7 +206,7 @@ async function main() {
   await B.page.locator("#res-seguent").click();
   await B.page.getByRole("button", { name: "Cercar" }).click();
   await B.page.fill("#cerca-text", "salma");
-  await B.page.getByText(/Ja entrat \d\d:\d\d/).waitFor();
+  await B.page.getByText(/Ja entrat (\d+\/\d+ )?\d\d:\d\d/).waitFor();
   await B.page.locator("#dlg-cerca [data-tancar]").click();
   console.log("✓ cerca manual i persona ja entrada amb el sistema antic");
 
@@ -213,7 +214,7 @@ async function main() {
   B.estat.offline = true;
   await B.page.setInputFiles("#foto-qr", { name: "qr.png", mimeType: "image/png", buffer: pngQR(urlQR(P4[1], P4[2], P4[3], P4[4])) });
   await B.page.locator("#resultat.ok").waitFor({ timeout: 15000 });
-  assert.ok(await B.page.locator("#res-offline").isVisible(), "avisa que és sense connexió");
+  assert.equal(await B.page.locator("#res-nom").textContent(), "Nour Bennani");
   await B.page.screenshot({ path: path.join(CAPTURES, "07-verd-sense-connexio.png") });
   await B.page.locator("#res-seguent").click();
   assert.match(await B.page.locator("#estat-text").textContent(), /Sense connexió · 1/);
@@ -226,28 +227,27 @@ async function main() {
   assert.deepEqual(backend.fulls["Assistència"].files.at(-1).slice(1), ["Nour Bennani", "55555555K", "600000005", "Pensió completa"]);
   console.log("✓ sense connexió: valida amb la llista i envia el registre quan torna la xarxa");
 
+  // Google lent (10 s): s'espera la resposta del full, no es passa a "sense connexió"
+  B.estat.retard = 10000;
+  const abansLent = backend.fulls["Assistència"].files.length;
+  await B.page.setInputFiles("#foto-qr", { name: "qr.png", mimeType: "image/png", buffer: pngQR(urlQR(P5[1], P5[2], P5[3], P5[4])) });
+  await B.page.locator("#resultat.ok").waitFor({ timeout: 20000 });
+  B.estat.retard = 0;
+  assert.equal(backend.fulls["Assistència"].files.length, abansLent + 1, "registrat directament al full");
+  assert.equal(await B.page.locator("#estat-text").textContent(), "En línia");
+  await B.page.locator("#res-seguent").click();
+  console.log("✓ amb Google lent (10 s) espera la resposta del full");
+
   await B.page.getByRole("button", { name: "Historial" }).click();
-  assert.equal(await B.page.locator("#historial li").count(), 4);
+  assert.equal(await B.page.locator("#historial li").count(), 5);
   await B.page.screenshot({ path: path.join(CAPTURES, "08-historial.png") });
   await B.page.locator("#dlg-historial [data-tancar]").click();
   await navB.close();
 
-  // ============ C: mode demostració ============
+  // Ja no hi ha mode de prova
   const navC = await chromium.launch();
-  const ctxC = await navC.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ca-ES", serviceWorkers: "block" });
-  const C = await ctxC.newPage();
-  C.on("pageerror", (e) => errors.push(e.message));
-  await C.goto(`${base}/`);
-  await C.getByRole("button", { name: "Provar-ho amb dades de prova" }).click();
-  await C.locator("#avis-demo").waitFor();
-  await C.waitForFunction(() => document.getElementById("n-pagats").textContent === "8");
-  await C.getByRole("button", { name: "Opcions" }).click();
-  await C.getByRole("link", { name: "Obrir" }).click();
-  await C.getByRole("heading", { name: "Codis de prova" }).waitFor();
-  await C.screenshot({ path: path.join(CAPTURES, "09-codis-prova.png"), fullPage: false });
-  await C.locator(".codi", { hasText: "Aya El Idrissi" }).getByRole("button").click();
-  await C.locator("#resultat.ok").waitFor({ timeout: 10000 });
-  console.log("✓ mode demostració i codis de prova");
+  const C = await obrir(navC, base, backend, errors);
+  assert.equal(await C.page.getByText(/dades de prova/i).count(), 0, "sense botó de dades de prova");
   await navC.close();
 
   assert.deepEqual(errors, [], `errors de JavaScript: ${errors.join(" | ")}`);

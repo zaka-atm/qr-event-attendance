@@ -4,7 +4,6 @@ App web per a l'equip de recepció: **escaneja el QR que ja reben els assistents
 
 - **App:** carpeta [`recepcio/`](recepcio/) — es publica sola a GitHub Pages: https://zaka-atm.github.io/qr-event-attendance/
 - **Connexió amb el full:** [`apps-script/Codi.gs`](apps-script/Codi.gs) — instal·lació pas a pas a [`apps-script/LLEGEIX-ME.md`](apps-script/LLEGEIX-ME.md)
-- **Mode demostració:** a la pantalla d'inici, «Provar-ho en mode demostració», amb codis QR de prova.
 
 | Inici | Escàner | Pot passar | Ja ha entrat | No ha pagat | Cerca manual | Sense connexió |
 |---|---|---|---|---|---|---|
