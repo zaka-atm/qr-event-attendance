@@ -153,7 +153,7 @@ assert.ok(!JSON.stringify(r).includes("12345678Z"), "el DNI no viatja en clar");
 console.log("✓ sincronització amb hash del DNI");
 
 // Mode diari
-vm.runInContext("CONFIG.MODE = 'diari'", context);
+vm.runInContext("CONFIG_RECEPCIO.MODE = 'diari'", context);
 assistencia.rows = [assistencia.rows[0], assistencia.rows[1], [new Date(Date.now() - 36 * 3600e3), "Marwa Test Prova", "12345678Z", "", "", "Aisha", "QR"]];
 r = call({ accio: "registrar", codi: CODI, qr: { dni: "12345678Z" } });
 assert.equal(r.estat, "correcte", "en mode diari, ahir no compta");

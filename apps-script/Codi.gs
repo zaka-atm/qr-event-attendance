@@ -10,9 +10,12 @@
  *   - Si tot és correcte, afegeix la fila a "Assistència" amb la data, qui l'ha registrat i com.
  *
  * Instal·lació (5 minuts): mira el fitxer LLEGEIX-ME.md d'aquesta carpeta.
+ *
+ * IMPORTANT: posa'l en un projecte d'Apps Script NOU, no al del doGet ni al dels correus.
+ * (No defineix doGet ni CONFIG, per no trepitjar-los si algú l'hi enganxa per error.)
  */
 
-var CONFIG = {
+var CONFIG_RECEPCIO = {
   ID_FULL_CALCUL: '1B59AnMRZjBGOK9jhjKb-h2DiclBiedWHZ4aERqn-Ff4',
   ESDEVENIMENT: 'XVII Congrés Islàmic de Catalunya',
   ZONA_HORARIA: 'Europe/Madrid',
@@ -35,10 +38,6 @@ var CONFIG = {
 // ---------------------------------------------------------------------------
 // Punts d'entrada web
 // ---------------------------------------------------------------------------
-
-function doGet() {
-  return sortida({ ok: true, servei: 'recepcio', versio: 1 });
-}
 
 function doPost(e) {
   var peticio;
@@ -68,7 +67,7 @@ function gestionar(p) {
 
   switch (p.accio) {
     case 'ping':
-      return { ok: true, esdeveniment: CONFIG.ESDEVENIMENT, mode: CONFIG.MODE, estadistiques: estadistiques() };
+      return { ok: true, esdeveniment: CONFIG_RECEPCIO.ESDEVENIMENT, mode: CONFIG_RECEPCIO.MODE, estadistiques: estadistiques() };
     case 'sincronitzar':
       return sincronitzar();
     case 'registrar':
@@ -91,7 +90,7 @@ function codiCorrecte(codi) {
 // ---------------------------------------------------------------------------
 
 function llibre() {
-  return SpreadsheetApp.openById(CONFIG.ID_FULL_CALCUL);
+  return SpreadsheetApp.openById(CONFIG_RECEPCIO.ID_FULL_CALCUL);
 }
 
 function full(nom) {
@@ -111,19 +110,19 @@ function normText(v) {
 }
 
 function llegirPagats() {
-  var f = full(CONFIG.FULL_PAGATS);
+  var f = full(CONFIG_RECEPCIO.FULL_PAGATS);
   var ultima = f.getLastRow();
-  if (ultima < CONFIG.PRIMERA_FILA_PAGATS) return [];
-  var c = CONFIG.COL_PAGATS;
+  if (ultima < CONFIG_RECEPCIO.PRIMERA_FILA_PAGATS) return [];
+  var c = CONFIG_RECEPCIO.COL_PAGATS;
   var ncols = Math.max(c.correu, c.nom, c.dni, c.numero, c.tipus);
-  var valors = f.getRange(CONFIG.PRIMERA_FILA_PAGATS, 1, ultima - CONFIG.PRIMERA_FILA_PAGATS + 1, ncols).getValues();
+  var valors = f.getRange(CONFIG_RECEPCIO.PRIMERA_FILA_PAGATS, 1, ultima - CONFIG_RECEPCIO.PRIMERA_FILA_PAGATS + 1, ncols).getValues();
   var persones = [];
   for (var i = 0; i < valors.length; i++) {
     var v = valors[i];
     var dni = normDni(v[c.dni - 1]);
     if (!dni) continue;
     persones.push({
-      fila: CONFIG.PRIMERA_FILA_PAGATS + i,
+      fila: CONFIG_RECEPCIO.PRIMERA_FILA_PAGATS + i,
       nom: String(v[c.nom - 1]).trim(),
       dni: String(v[c.dni - 1]).trim(),
       clau: dni,
@@ -135,12 +134,12 @@ function llegirPagats() {
 }
 
 function llegirAssistencia() {
-  var f = full(CONFIG.FULL_ASSISTENCIA);
+  var f = full(CONFIG_RECEPCIO.FULL_ASSISTENCIA);
   var ultima = f.getLastRow();
-  if (ultima < CONFIG.PRIMERA_FILA_ASSISTENCIA) return [];
-  var c = CONFIG.COL_ASSISTENCIA;
+  if (ultima < CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA) return [];
+  var c = CONFIG_RECEPCIO.COL_ASSISTENCIA;
   var ncols = Math.max(c.data, c.dni, c.registratPer);
-  var valors = f.getRange(CONFIG.PRIMERA_FILA_ASSISTENCIA, 1, ultima - CONFIG.PRIMERA_FILA_ASSISTENCIA + 1, ncols).getValues();
+  var valors = f.getRange(CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA, 1, ultima - CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA + 1, ncols).getValues();
   var registres = [];
   for (var i = 0; i < valors.length; i++) {
     var v = valors[i];
@@ -157,7 +156,7 @@ function llegirAssistencia() {
 }
 
 function dia(data) {
-  return Utilities.formatDate(data, CONFIG.ZONA_HORARIA, 'yyyy-MM-dd');
+  return Utilities.formatDate(data, CONFIG_RECEPCIO.ZONA_HORARIA, 'yyyy-MM-dd');
 }
 
 /** Registre que bloqueja l'entrada (en mode 'diari', només el d'avui compta). */
@@ -165,7 +164,7 @@ function registreQueBloqueja(registres, clau, ara) {
   for (var i = 0; i < registres.length; i++) {
     var r = registres[i];
     if (r.clau !== clau) continue;
-    if (CONFIG.MODE === 'diari' && (!r.data || dia(r.data) !== dia(ara))) continue;
+    if (CONFIG_RECEPCIO.MODE === 'diari' && (!r.data || dia(r.data) !== dia(ara))) continue;
     return r;
   }
   return null;
@@ -178,7 +177,7 @@ function estadistiques(pagats, registres) {
   var dins = {};
   for (var i = 0; i < registres.length; i++) {
     var r = registres[i];
-    if (CONFIG.MODE === 'diari' && (!r.data || dia(r.data) !== dia(ara))) continue;
+    if (CONFIG_RECEPCIO.MODE === 'diari' && (!r.data || dia(r.data) !== dia(ara))) continue;
     dins[r.clau] = true;
   }
   return { pagats: pagats.length, registrats: Object.keys(dins).length };
@@ -230,7 +229,7 @@ function registrar(p, personal) {
       };
     }
 
-    var c = CONFIG.COL_ASSISTENCIA;
+    var c = CONFIG_RECEPCIO.COL_ASSISTENCIA;
     var fila = [];
     fila[c.data - 1] = hora;
     fila[c.nom - 1] = persona.nom;
@@ -240,7 +239,7 @@ function registrar(p, personal) {
     fila[c.registratPer - 1] = personal;
     fila[c.metode - 1] = p.metode === 'manual' ? 'Manual' : (p.escanejatA ? 'QR (sense connexió)' : 'QR');
     for (var k = 0; k < fila.length; k++) if (fila[k] === undefined) fila[k] = '';
-    full(CONFIG.FULL_ASSISTENCIA).appendRow(fila);
+    full(CONFIG_RECEPCIO.FULL_ASSISTENCIA).appendRow(fila);
     SpreadsheetApp.flush();
 
     registres.push({ clau: persona.clau, data: hora, per: personal });
@@ -262,7 +261,7 @@ function sincronitzar() {
     var r = registreQueBloqueja(registres, p.clau, ara);
     return { h: sha256(p.clau), n: p.nom, t: p.tipus, f: p.fila, r: r && r.data ? r.data.toISOString() : (r ? 'si' : null) };
   });
-  return { ok: true, mode: CONFIG.MODE, persones: persones, estadistiques: estadistiques(pagats, registres), a: ara.toISOString() };
+  return { ok: true, mode: CONFIG_RECEPCIO.MODE, persones: persones, estadistiques: estadistiques(pagats, registres), a: ara.toISOString() };
 }
 
 function cercar(text) {
