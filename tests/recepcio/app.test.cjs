@@ -90,6 +90,11 @@ function pngQR(text) {
 async function obrir(navegador, base, backend, errors) {
   const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ca-ES", timezoneId: "Europe/Madrid", serviceWorkers: "block", permissions: ["camera"] });
   const estat = { offline: false };
+  // La configuració de prova apunta a l'Apps Script simulat (el camp de l'adreça queda amagat, com en producció).
+  await ctx.route(`${base}/config.js`, (route) => route.fulfill({
+    contentType: "text/javascript",
+    body: `window.RECEPCIO = { API_URL: "${API}", ESDEVENIMENT: "XVII Congrés Islàmic de Catalunya" };`,
+  }));
   await ctx.route(`${API}*`, async (route) => {
     if (estat.offline) return route.abort("internetdisconnected");
     const req = route.request();
@@ -104,7 +109,7 @@ async function obrir(navegador, base, backend, errors) {
 }
 
 async function entrar(page, codi, nom) {
-  await page.fill("#api-url", API);
+  assert.equal(await page.locator("#camp-api").isVisible(), false, "amb API_URL configurada no es demana l'adreça");
   await page.fill("#codi", codi);
   await page.fill("#personal", nom);
   await page.getByRole("button", { name: "Començar a escanejar" }).click();
