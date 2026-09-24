@@ -804,6 +804,11 @@
     carregarLogos();
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
     if (estat.sessio) {
+      // Si l'adreça de l'Apps Script canvia a config.js, els mòbils ja connectats la fan servir sense tornar a entrar.
+      if (!estat.sessio.demo && CFG.API_URL && estat.sessio.apiUrl !== CFG.API_URL) {
+        estat.sessio.apiUrl = CFG.API_URL;
+        guarda.set(K.sessio, estat.sessio);
+      }
       if (estat.sessio.demo) await carregarDemo().catch(() => {});
       entrarEscaner();
     } else {

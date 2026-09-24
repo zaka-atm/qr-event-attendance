@@ -4,7 +4,7 @@
 // LOGO: s'intenten en ordre; si cap carrega, es mostra el text «Entre Joves».
 // No hi posis mai el codi d'accés: aquest fitxer és públic.
 window.RECEPCIO = {
-  API_URL: "https://script.google.com/macros/s/AKfycbxWUsxDRA7JWKyHztB0321T9GpGrkR7HzK-Z_-L3pEhsGoNGFSsPjJY0D9PFrw4DoDf/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbwgXBrJ_95xgAKxN1hp88feCSQOAg__yoqJKtPb_AqgXTkD88Q1BEnxoHZL45kYRn8d/exec",
   ESDEVENIMENT: "XVII Congrés Islàmic de Catalunya",
   LOGO: [
     "https://lh3.googleusercontent.com/d/1ysPCFM3gV7qLsTEhkTgAF6mnVWLuE4FK",
