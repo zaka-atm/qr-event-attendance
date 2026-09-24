@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
-# Escanea la MISMA entrada desde 20 "puertas" a la vez y comprueba que solo una la acepta.
-# Uso: PSQL="psql -h localhost -p 5432 -U postgres -d qr_test" ./tests/db/test_concurrency.sh
+# Dos pruebas de concurrencia:
+#  1. 20 "puertas" escanean la MISMA entrada a la vez -> solo una la acepta.
+#  2. 10 organizadores pulsan "Confirmar pago" del mismo pedido a la vez -> una sola entrada.
+# Uso: PSQL="psql -d qr_test" ./tests/db/test_concurrency.sh
 set -euo pipefail
 PSQL=${PSQL:-psql}
+ORG="set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';"
 
-TICKET=$($PSQL -Atq <<'SQL'
+new_order() {
+  $PSQL -Atq <<SQL | tail -n1
 set role service_role;
 update public.events set capacity = capacity + 1 where slug = 'otro-evento';
-select (public.fulfill_order(
-  ((public.create_order('otro-evento', 'Concurrencia', 'c@example.com', null, 'v1'))->>'order_id')::uuid,
-  'cs_conc', 'pi_conc', 1000))->>'ticket_id';
+select (public.create_order('otro-evento', 'Concurrencia', '$1@example.com', null, 'bizum', 'v1'))->>'order_id';
 SQL
-)
-TICKET=$(echo "$TICKET" | tail -n1)
+}
+
+# --- 1. Check-in simultáneo ---------------------------------------------------------
+ORDER=$(new_order conc1)
+TICKET=$($PSQL -Atq -c "$ORG select (public.confirm_order('$ORDER'))->>'ticket_id';" | tail -n1)
 
 OUT=$(mktemp)
 for i in $(seq 1 20); do
-  $PSQL -Atq >>"$OUT" <<SQL &
-set role authenticated;
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select public.check_in('$TICKET', '22222222-2222-4222-8222-222222222222')->>'status';
-SQL
+  $PSQL -Atq -c "$ORG select public.check_in('$TICKET', '22222222-2222-4222-8222-222222222222')->>'status';" >>"$OUT" &
 done
 wait
+OK=$(grep -c '^ok$' "$OUT" || true); USED=$(grep -c '^used$' "$OUT" || true)
+echo "check-in: ok=$OK used=$USED"
+[ "$OK" -eq 1 ] && [ "$USED" -eq 19 ] || { echo "FALLO: se esperaba 1 ok y 19 used" >&2; exit 1; }
 
-OK=$(grep -c '^ok$' "$OUT" || true)
-USED=$(grep -c '^used$' "$OUT" || true)
+# --- 2. Confirmación simultánea -------------------------------------------------------
+ORDER=$(new_order conc2)
+: >"$OUT"
+for i in $(seq 1 10); do
+  $PSQL -Atq -c "$ORG select (public.confirm_order('$ORDER'))->>'created';" >>"$OUT" &
+done
+wait
+CREATED=$(grep -c '^true$' "$OUT" || true)
+TICKETS=$($PSQL -Atq -c "select count(*) from public.tickets where order_id = '$ORDER';")
 rm -f "$OUT"
-echo "ok=$OK used=$USED"
-if [ "$OK" -ne 1 ] || [ "$USED" -ne 19 ]; then
-  echo "FALLO: se esperaba exactamente 1 ok y 19 used" >&2
-  exit 1
-fi
-echo 'OK: solo una puerta aceptó la entrada'
+echo "confirmación: created=$CREATED tickets=$TICKETS"
+[ "$CREATED" -eq 1 ] && [ "$TICKETS" -eq 1 ] || { echo "FALLO: se esperaba una sola entrada" >&2; exit 1; }
+
+echo 'OK: concurrencia correcta'

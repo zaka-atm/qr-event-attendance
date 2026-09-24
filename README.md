@@ -1,164 +1,146 @@
-# QR event tickets
+# Entradas QR
 
-Replaces the Google Forms + Sheets + Apps Script setup with a small web app you own:
+Sustituye el sistema de Google Forms + Sheets + Apps Script por una web propia:
 
-1. **Buy**: a mobile-first page where the attendee enters name, email and (only if the event needs it) birth date, gives GDPR consent and pays with Stripe (card, Apple Pay, Google Pay).
-2. **Database**: Supabase Postgres with `events`, `orders`, `tickets` and `organizers`, locked down with Row Level Security.
-3. **Ticket + email**: the Stripe webhook creates **exactly one** ticket per paid order, draws a PNG QR on the server that contains **only the ticket UUID**, and emails it through Resend.
-4. **Check-in**: an installable PWA (`/checkin/`) for logged-in organizers. It scans with the camera and shows a full-screen **green "¡Bienvenido!"** or **red "Entrada ya utilizada" / "Entrada no válida"**, and keeps working with no signal.
+1. **Compra**: el asistente pone nombre, email y (solo si el evento lo necesita) fecha de nacimiento, acepta la política de privacidad y elige **Bizum o transferencia**. Recibe una **referencia** (p. ej. `K7M2QX`) para poner en el concepto.
+2. **Panel de pagos** (`/admin/`): tú compruebas el dinero en el banco y pulsas **Confirmar pago**. En ese momento se crea la entrada y se envía por email.
+3. **Entrada y email**: el servidor genera un QR que contiene **solo el ID de la entrada** y lo envía con Resend.
+4. **Puerta** (`/checkin/`): app para el móvil del equipo. Escanea con la cámara y muestra en verde **«¡Bienvenido!»** o en rojo **«Entrada ya utilizada»** / **«Entrada no válida»**. Funciona sin cobertura.
 
-All attendee and staff text is in Spanish.
+Todos los textos para asistentes y equipo están en español.
 
-| Compra | Escáner | Verde | Ya utilizada | No válida | Sin conexión |
-|---|---|---|---|---|---|
-| ![](docs/screenshots/01-compra.png) | ![](docs/screenshots/02-escaner.png) | ![](docs/screenshots/03-verde.png) | ![](docs/screenshots/04-rojo-usada.png) | ![](docs/screenshots/05-rojo-no-valida.png) | ![](docs/screenshots/06-verde-sin-conexion.png) |
+**Demo con datos de ejemplo:** https://claude.ai/artifact/8LQis7BvwFCMgXW2LqkTp4 (solo la puede abrir quien tenga acceso). Para montarla en local: `node scripts/build-demo.mjs` y sirve `dist/demo/`.
 
-Ticket email: [docs/screenshots/07-email.png](docs/screenshots/07-email.png)
+| Compra | Reservada | Panel de pagos | Escáner | Verde | Ya utilizada | No válida |
+|---|---|---|---|---|---|---|
+| ![](docs/screenshots/01-compra.png) | ![](docs/screenshots/01b-reservada.png) | ![](docs/screenshots/08-pagos.png) | ![](docs/screenshots/02-escaner.png) | ![](docs/screenshots/03-verde.png) | ![](docs/screenshots/04-rojo-usada.png) | ![](docs/screenshots/05-rojo-no-valida.png) |
 
-## Stack (all managed, no server to run)
+Email con la entrada: [docs/screenshots/07-email.png](docs/screenshots/07-email.png)
 
-| Piece | Service | Why |
+## Servicios (todos gestionados, sin servidor propio)
+
+| Pieza | Servicio | Por qué |
 |---|---|---|
-| Database, organizer login, server functions | **Supabase** (choose an EU region) | Postgres gives the atomic check-in and idempotent ticket creation; Auth handles organizer login; Edge Functions run the webhook. The free tier is enough for events under 1,000 attendees. |
-| Payments | **Stripe Checkout** | Card, Apple Pay and Google Pay on a hosted page (no card data touches you), signed webhooks, instant test mode. |
-| Email | **Resend** | Simple API, inline (CID) images for the QR, idempotency keys. Postmark is an equally good swap. |
-| Static site | **Cloudflare Pages** (or Netlify) | Free, HTTPS (required for the camera), serves `web/` as is, with no build step. |
+| Base de datos, login de organizadores, funciones del servidor | **Supabase** (región UE) | Postgres garantiza que cada pedido da una sola entrada y que cada entrada entra una sola vez. El plan gratuito basta para eventos de menos de 1.000 personas. |
+| Email | **Resend** | API sencilla, QR incrustado en el email y protección contra envíos duplicados. |
+| Web | **Cloudflare Pages** (o Netlify) | Gratis, con HTTPS (necesario para la cámara). Se sube la carpeta `web/` tal cual. |
 
-**Bizum:** Stripe doesn't offer Bizum. It needs a Redsys virtual POS from your bank. The code is ready for it: a second `redsys-webhook` function would verify the Redsys HMAC signature and call the same `fulfill_order()` function, so idempotency and email work unchanged (see "Next steps").
+Los pagos se comprueban a mano: no hay pasarela ni comisiones. Si más adelante quieres cobro automático, se puede añadir Stripe o Bizum a través de Redsys sin cambiar el resto: bastaría con llamar a `confirm_order()` desde su webhook.
 
-## How the requirements are met
+## Cómo se cumplen los requisitos
 
-| Requirement | Where |
+| Requisito | Dónde |
 |---|---|
-| Ticket is created only after the payment is confirmed server-side | `supabase/functions/stripe-webhook`. The success page (`gracias.html`) creates nothing. |
-| Webhook is idempotent | `fulfill_order()` locks the order row (`SELECT … FOR UPDATE`) and returns the existing ticket if the order is already paid. `tickets.order_id` is `UNIQUE`. Resend gets an `Idempotency-Key`. |
-| Random, unguessable IDs | `tickets.id uuid default gen_random_uuid()` (UUID v4). |
-| Atomic check-in | `check_in()` runs `UPDATE tickets SET checked_in_at = now() … WHERE id = $1 AND event_id = $2 AND checked_in_at IS NULL RETURNING name`. Tested with 20 simultaneous scans of one ticket: exactly 1 accepted. |
-| Only organizers can check in | `check_in()` refuses anyone not in `organizers`. `anon` has no `EXECUTE` on it, and nobody has `UPDATE` on `tickets`. |
-| QR generated on your server, ID only | `supabase/functions/_shared/qr.ts` (`qrcode` library). |
-| Transactional email | `supabase/functions/_shared/deliver.ts` (Resend). |
-| Low connectivity | See "Offline check-in" below. |
-| GDPR | Consent checkbox (not pre-ticked) with a stored version and timestamp. Birth date only when the event needs it. Personal data lives only on the ticket. `anonymize_past_events()`. Staff phones get neither emails nor consent data, and wipe the list on logout. |
+| La entrada solo existe cuando el pago está confirmado | `confirm_order()` en la base de datos, que exige ser organizador. El navegador del comprador solo puede reservar. |
+| Confirmar dos veces no crea dos entradas | `confirm_order()` bloquea el pedido (`SELECT … FOR UPDATE`) y devuelve la entrada ya creada. `tickets.order_id` es `UNIQUE`. Probado con 10 confirmaciones simultáneas: una sola entrada. |
+| IDs imposibles de adivinar | `tickets.id uuid default gen_random_uuid()` (UUID v4). |
+| Check-in atómico | `check_in()`: `UPDATE tickets SET checked_in_at = now() … WHERE id = $1 AND event_id = $2 AND checked_in_at IS NULL RETURNING name`. Probado con 20 escaneos simultáneos: solo uno entra. |
+| Solo organizadores validan y confirman | `check_in()`, `confirm_order()`, `cancel_order()` rechazan a quien no está en `organizers`. Nadie tiene permiso `UPDATE` directo. |
+| QR generado en tu servidor, solo con el ID | `supabase/functions/_shared/qr.ts` (librería `qrcode`). |
+| Email transaccional | `supabase/functions/_shared/resend.ts`. |
+| Poca cobertura | Ver «Puerta sin cobertura». |
+| RGPD | Ver «RGPD». |
 
-## Repository layout
+## Estructura
 
 ```
 supabase/
-  migrations/20260924000000_init.sql   schema, RLS, create_order, fulfill_order, check_in, anonymize
-  functions/create-checkout/           form → reserve place → Stripe Checkout URL
-  functions/stripe-webhook/            Stripe → ticket → QR → email
-  functions/_shared/                   env, QR, email template, delivery
-  seed.sql                             example event + how to add an organizer
-web/                                   static site (deploy this folder)
-  index.html, assets/buy.js            purchase page
-  gracias.html, privacidad.html        after-payment page, privacy policy TEMPLATE
-  config.js                            Supabase URL + anon/publishable key (public by design)
-  checkin/                             organizer PWA (app.js, sw.js, manifest, vendored libs)
-tests/
-  db/          SQL tests + concurrency test against a local Postgres
-  functions/   Deno test of the webhook (bad signature, duplicate delivery, QR content)
-  e2e/         Playwright test of the purchase page and the check-in PWA (online and offline)
+  migrations/20260924000000_init.sql   tablas, permisos, create_order, confirm_order, cancel_order, check_in…
+  functions/create-order/              formulario → reserva → referencia e instrucciones (web + email)
+  functions/manage-order/              panel: confirmar pago (crea y envía la entrada), cancelar, reenviar
+  functions/_shared/                   QR, plantillas de email, envío con Resend
+  seed.sql                             evento de ejemplo y cómo dar de alta organizadores
+web/                                   la web (esto es lo que se publica)
+  index.html, assets/buy.js            página de compra
+  admin/                               panel de pagos
+  checkin/                             app de la puerta (PWA)
+  privacidad.html                      PLANTILLA de política de privacidad
+  config.js                            URL de Supabase y clave pública
+demo/                                  simulador para la demo (no se publica con la web real)
+tests/                                 pruebas de base de datos, funciones y navegador
 ```
 
-## Setup, step by step
+## Puesta en marcha
 
-You need the [Supabase CLI](https://supabase.com/docs/guides/cli) and accounts on Supabase, Stripe and Resend. Everything below is in Stripe **test mode** first.
+Necesitas la [CLI de Supabase](https://supabase.com/docs/guides/cli) y cuentas en Supabase y Resend.
 
 ### 1. Supabase
-
-1. Create a project in an **EU region** (e.g. Frankfurt or Paris).
-2. In this folder: `supabase login`, then `supabase link --project-ref <your-ref>`, then `supabase db push` (this applies the migration).
-3. **Authentication → Sign In / Providers → Email**: turn **off** "Allow new users to sign up". Organizers are created by you, never by strangers.
-4. **Authentication → Users → Add user**: one user per door phone or staff member (email + password).
-5. In the SQL editor, grant them check-in rights:
+1. Crea un proyecto en una **región de la UE**.
+2. En esta carpeta: `supabase login`, `supabase link --project-ref <tu-ref>`, `supabase db push`.
+3. **Authentication → Sign In / Providers → Email**: desactiva «Allow new users to sign up». Los organizadores los creas tú.
+4. **Authentication → Users → Add user**: un usuario por persona o móvil del equipo.
+5. Dales permiso en el editor SQL:
    ```sql
    insert into public.organizers (user_id)
-   select id from auth.users where email in ('puerta1@tudominio.com', 'puerta2@tudominio.com');
+   select id from auth.users where email in ('puerta1@tudominio.com', 'caja@tudominio.com');
    ```
-6. Create your event (see `supabase/seed.sql`). Set `published` and `sales_open` to `true` to start selling. Prices are in cents.
-7. (GDPR) **Database → Extensions**: enable `pg_cron`, then schedule the daily clean-up:
+6. Crea tu evento (mira `supabase/seed.sql`). Precio en céntimos. Pon `published` y `sales_open` a `true` para abrir la venta.
+7. (RGPD) **Database → Extensions**: activa `pg_cron` y programa la limpieza diaria:
    ```sql
    select cron.schedule('anonymize-past-events', '0 4 * * *', $$select public.anonymize_past_events(30)$$);
    ```
 
-### 2. Stripe
+### 2. Resend
+1. Añade y verifica tu dominio (registros SPF y DKIM). Así las entradas no acaban en spam.
+2. Crea una API key.
 
-1. **Developers → API keys**: copy the secret key (`sk_test_…`).
-2. **Developers → Webhooks → Add endpoint**: URL `https://<your-ref>.supabase.co/functions/v1/stripe-webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`. Copy the signing secret (`whsec_…`).
-3. **Settings → Payment methods**: enable Card, Apple Pay and Google Pay. Disable delayed methods such as SEPA Direct Debit so every ticket is issued instantly. Stripe Checkout shows the wallets automatically on supported devices.
-
-### 3. Resend
-
-1. Add and verify your sending domain (SPF + DKIM DNS records). This is what keeps tickets out of spam.
-2. Create an API key.
-
-### 4. Secrets and functions
-
+### 3. Datos y funciones
 ```bash
-cp supabase/functions/.env.example supabase/functions/.env   # fill in the values
+cp supabase/functions/.env.example supabase/functions/.env   # rellena: teléfono Bizum, IBAN, Resend…
 supabase secrets set --env-file supabase/functions/.env
-supabase functions deploy create-checkout
-supabase functions deploy stripe-webhook
+supabase functions deploy create-order
+supabase functions deploy manage-order
 ```
-`supabase/config.toml` deploys both without Supabase JWT verification. `create-checkout` is public (it only reserves a place), and `stripe-webhook` verifies Stripe's signature itself.
 
-### 5. Website
+### 4. Web
+1. Edita `web/config.js`: `SUPABASE_URL` y la clave **anon** o **publishable** (nunca la service role), tu marca y el nombre del organizador.
+2. Completa todo lo que va entre `[…]` en `web/privacidad.html` y que lo revise tu asesor.
+3. Cloudflare Pages → **Create → Upload assets** (o conecta el repositorio), **sin comando de build**, carpeta **`web`**. Pon la URL resultante en `SITE_URL` y repite `supabase secrets set`.
+4. Enlace para vender: `https://tu-web/?e=<slug-del-evento>`. Sin `?e=` se listan todos los eventos publicados.
 
-1. Edit `web/config.js`: `SUPABASE_URL`, the **anon** or **publishable** key (never the service role key), your brand and organizer name.
-2. Fill in every `[…]` in `web/privacidad.html` and have it reviewed. It's a template, not legal advice.
-3. Cloudflare Pages → **Create → Upload assets** (or connect the repo) with **no build command** and output directory **`web`**. Put the resulting URL (or your custom domain) in `SITE_URL` and re-run `supabase secrets set`.
-4. Link attendees to `https://your-site/?e=<event-slug>`. Without `?e=`, the page lists all published events.
+### 5. Día a día
+- **Vender**: comparte el enlace. Cada reserva aparece en **Pagos** (`/admin/`) como pendiente, con su referencia.
+- **Cobrar**: cuando veas el Bizum o la transferencia con esa referencia en el banco, pulsa **Confirmar pago**. La entrada sale por email al momento.
+- **Reserva caducada** (por defecto a las 72 h, `RESERVATION_HOURS`): la plaza vuelve a contar como libre, pero todavía puedes confirmarla si queda aforo. Si el pago no llega, **Cancelar**.
+- **Email equivocado**: en **Pagados**, **Reenviar entrada** con el email corregido.
+- **En la puerta**: abre `/checkin/` en cada móvil, inicia sesión, elige el evento y añádela a la pantalla de inicio.
 
-### 6. Try it end to end
+## Puerta sin cobertura
 
-1. Buy a ticket with Stripe's test card `4242 4242 4242 4242` (any future date, any CVC).
-2. Within seconds the ticket email arrives.
-3. On a phone, open `https://your-site/checkin/`, log in as an organizer, pick the event, and use **Add to Home Screen** so it opens like an app.
-4. Scan the email's QR (green), scan again (red, "ya utilizada"), then scan any other QR (red, "no válida").
+- **Antes de abrir puertas**, con buena señal, abre el evento en cada móvil. La app descarga la lista de entradas (ID, nombre, fecha de nacimiento, hora de entrada) y la guarda en el móvil. Para 1.000 entradas son menos de 100 KB. Se actualiza cada 2 minutos mientras hay conexión.
+- **Con conexión**, cada escaneo va a la base de datos, así que dos puertas nunca dejan pasar la misma entrada.
+- **Si la petición falla o tarda más de 4 segundos**, la app pasa a modo sin conexión (etiqueta ámbar «Sin conexión»). Valida con la lista del móvil y guarda el escaneo con su hora real.
+- **Al volver la señal** (se comprueba cada 15 s, o con **Sincronizar**) se envían los escaneos guardados. Si otra puerta ya había dejado pasar esa entrada, aparece en **Incidencias**.
+- **El inconveniente:** mientras un móvil está sin conexión no sabe lo que hacen las otras puertas, así que un QR copiado podría entrar una vez por cada puerta sin conexión. Con 1–3 puertas se evita:
+  - llevando un router 4G/5G o usando el wifi del local solo para los móviles de la puerta;
+  - si una puerta no tiene señal, haciendo entrar a todo el mundo por esa puerta (un solo móvil no deja pasar dos veces la misma entrada);
+  - pulsando **Sincronizar** justo antes de abrir.
+- Las entradas confirmadas después de la última descarga salen como «no válida (sin conexión)», con un aviso para comprobarlas cuando vuelva la señal. Deja de confirmar pagos un poco antes de abrir, o actualiza la lista al llegar al local.
+- La app se abre sin conexión (el navegador guarda la aplicación). Si la sesión caduca sin conexión, sigue funcionando con la lista del móvil y pide la contraseña al volver la señal, sin perder los escaneos guardados.
+- **Buscar / código** encuentra una entrada por nombre o por el código de 8 caracteres del email. **Leer QR de una foto** sirve si la cámara en directo falla.
 
-Local webhook testing: `supabase functions serve --env-file supabase/functions/.env` plus `stripe listen --forward-to localhost:54321/functions/v1/stripe-webhook`.
+## RGPD
 
-## Offline check-in (poor signal at the venue)
+- **Datos**: nombre y email siempre; fecha de nacimiento solo si el evento tiene `collect_birth_date` (obligatoria si hay `min_age`). Sin DNI ni teléfono.
+- **Consentimiento**: casilla sin marcar. Se guardan `consent_at` y `consent_version` (secreto `CONSENT_VERSION`); cambia la versión cuando cambies el texto.
+- **Un solo sitio**: al confirmar o cancelar, los datos del pedido se borran y quedan solo en la entrada. `anonymize_past_events(30)` borra nombres, emails y fechas 30 días después de cada evento y cancela las reservas abandonadas una semana después de caducar.
+- **Mínimo en los móviles**: la puerta solo recibe ID, nombre, fecha de nacimiento y hora de entrada, nunca emails. El email solo se ve en el panel mientras el pedido está pendiente (para cuadrar el pago). Al cerrar sesión se borra la lista del móvil.
+- **Encargados del tratamiento**: acepta los DPA de Supabase y Resend y menciónalos en la política de privacidad (la plantilla ya lo hace).
+- Fuentes y librerías van incluidas en la web: no se llama a Google Fonts ni a CDN que puedan registrar la IP de los visitantes. La demo sí las carga de CDN; la web real no.
 
-- **Before doors open**, with good signal, open the event on every phone. The app downloads the event's ticket list (ID, name, birth date, check-in time) into IndexedDB. For 1,000 tickets that's well under 100 KB. It refreshes every 2 minutes while online.
-- **Online**, every scan goes to `check_in()` in Postgres, the single source of truth, so two doors can never admit the same ticket.
-- **When a request fails or takes more than 4 seconds**, the app switches to offline mode (amber "Sin conexión" pill). It validates against the local list, marks the ticket used on that phone, and queues the scan with its real time.
-- **When signal returns** (checked every 15 s, or with the **Sincronizar** button), the queue is replayed with the original scan time. If another door had already admitted that ticket, it appears under **Incidencias** so you can follow up.
-- **The trade-off:** while a phone is offline it can't know what other doors did in the meantime, so a copied QR could get in once at each offline door. With 1–3 doors, reduce the risk by:
-  - bringing a 4G/5G hotspot or using the venue Wi-Fi for the door phones only;
-  - if one door has no signal, sending all entries through that single door (one phone can't double-admit, because the local list catches it);
-  - pressing **Sincronizar** right before doors open.
-- Tickets bought after the last download show as "no válida (sin conexión)" with a hint to check again when online. Close sales a little before doors open, or refresh the list once you're at the venue.
-- The app shell (HTML, JS, fonts, QR decoder) is cached by the service worker, so it reopens without signal. If the login session expires while offline, the phone keeps working from the local list and asks for the password once signal is back, without losing queued scans.
-- **Buscar / código** finds a ticket by name or by the 8-character code printed under the QR, for broken screens or unreadable codes.
-
-## GDPR notes
-
-- **Data kept:** name and email always, birth date only when `collect_birth_date` is on (it is required when `min_age` is set). No DNI, no phone.
-- **Consent:** an explicit, unticked checkbox. `consent_at` and `consent_version` (`CONSENT_VERSION` secret) are stored with the ticket. Bump the version when you change the policy text.
-- **Single copy:** the order's personal fields are cleared when it's paid or expires. `anonymize_past_events(30)` blanks names, emails and birth dates 30 days after each event, and cleans abandoned orders.
-- **Least privilege at the door:** organizers can read only `id, event_id, name, birth_date, checked_in_at`. Logging out wipes the phone's local list.
-- **Processors:** sign or accept the DPAs of Supabase, Stripe and Resend, and list them in the privacy policy (the template already does).
-- Fonts and libraries are self-hosted (no Google Fonts or CDN calls that leak visitor IPs).
-
-## Tests
+## Pruebas
 
 ```bash
-# Database: local Postgres 16 required (uses a disposable database "qr_test")
-PGHOST=localhost PGUSER=postgres npm run test:db
-
-# Webhook + QR + email (Deno 2)
-npm run test:functions
-
-# Browser tests of the purchase page and the check-in PWA (Chromium via Playwright)
-npm install && npm run test:e2e
+PGHOST=localhost PGUSER=postgres npm run test:db     # Postgres 16 local; crea una base desechable "qr_test"
+npm run test:functions                               # Deno 2
+npm install && npm run test:e2e                      # navegador (Chromium con Playwright)
+node scripts/build-demo.mjs && npm run test:demo     # recorrido completo de la demo
 ```
 
-What they cover: idempotent fulfillment, amount mismatch, age limit, capacity and oversell, unpublished events, anonymous and non-organizer access denied, direct `UPDATE` denied, green/used/invalid/wrong-event results, offline scan times, anonymization, 20 concurrent scans of one ticket, bad Stripe signature, unpaid sessions, duplicate webhook (one email), QR decoding to exactly the ticket ID, HTML escaping in the email, and the whole door flow online and offline with sync and conflict detection.
+Cubren, entre otras cosas: reserva idempotente, edad mínima, aforo, reservas caducadas, accesos denegados a anónimos y no organizadores, 10 confirmaciones y 20 escaneos simultáneos, email de instrucciones y de entrada, QR que contiene exactamente el ID, reenvío a otro email, pantallas verde y rojas, modo sin conexión con sincronización e incidencias, y el panel de pagos.
 
-## Next steps
+## Siguientes pasos
 
-- **Bizum through Redsys**: `redsys-webhook` function (verify `Ds_Signature` with HMAC-SHA256 3DES key, check `Ds_Response < 100`) → `fulfill_order()`.
-- **Refunds**: handle `charge.refunded` and add `tickets.revoked_at`, which `check_in()` would treat as invalid.
-- **Resend a ticket**: a small organizer-only function that clears `email_status` and calls `deliverTicket()`, for typos in email addresses.
-- **Several tickets per purchase**: add `quantity` to `orders` and create one ticket per attendee name.
+- **Pago automático** (opcional): Stripe o Bizum vía Redsys llamando a `confirm_order()` desde su webhook.
+- **Devoluciones**: añadir `tickets.revoked_at` para anular una entrada; `check_in()` la trataría como no válida.
+- **Varias entradas por compra**: `quantity` en `orders` y una entrada por asistente.

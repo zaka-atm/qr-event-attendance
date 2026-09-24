@@ -1,11 +1,15 @@
-// POST /functions/v1/create-checkout
-// Recibe los datos del formulario, reserva plaza (create_order) y devuelve la URL de Stripe Checkout.
-// NO crea entradas: eso solo lo hace el webhook cuando Stripe confirma el pago.
+// POST /functions/v1/create-order
+// Recibe el formulario de compra, reserva plaza (create_order) y devuelve las instrucciones de pago
+// (Bizum o transferencia con una referencia). NO crea entradas: eso lo hace un organizador al
+// confirmar el pago en el panel (función manage-order).
 
-import { admin, SITE_URL, stripe } from "../_shared/env.ts";
+import { admin, EVENT_TIMEZONE, env, paymentDetails } from "../_shared/env.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
+import { renderOrderEmail } from "../_shared/email-template.ts";
+import { sendMail } from "../_shared/resend.ts";
 
 const CONSENT_VERSION = Deno.env.get("CONSENT_VERSION") ?? "2026-09";
+const HOLD_HOURS = Number(Deno.env.get("RESERVATION_HOURS") ?? "72");
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,20 +20,15 @@ const ERRORS: Record<string, [number, string]> = {
   birth_date_required: [422, "Indica tu fecha de nacimiento."],
 };
 
-interface Body {
-  event_slug?: unknown;
-  name?: unknown;
-  email?: unknown;
-  birth_date?: unknown;
-  consent?: unknown;
-  website?: unknown; // campo trampa para bots: debe llegar vacío
-}
+const money = (cents: number, currency: string) =>
+  new Intl.NumberFormat("es-ES", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Método no permitido." }, 405);
 
-  let body: Body;
+  // deno-lint-ignore no-explicit-any
+  let body: Record<string, any>;
   try {
     body = await req.json();
   } catch {
@@ -40,12 +39,14 @@ Deno.serve(async (req) => {
   const name = typeof body.name === "string" ? body.name.trim().replace(/\s+/g, " ") : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const birthDate = typeof body.birth_date === "string" && body.birth_date ? body.birth_date : null;
+  const method = body.payment_method;
 
-  if (body.website) return json({ error: "Petición no válida." }, 400);
+  if (body.website) return json({ error: "Petición no válida." }, 400); // campo trampa para bots
   if (body.consent !== true) return json({ error: "Debes aceptar la política de privacidad." }, 422);
   if (!slug) return json({ error: "Falta el evento." }, 400);
   if (name.length < 2 || name.length > 120) return json({ error: "Escribe tu nombre y apellidos." }, 422);
   if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: "El email no es válido." }, 422);
+  if (method !== "bizum" && method !== "transfer") return json({ error: "Elige cómo vas a pagar." }, 422);
   if (birthDate !== null && (!DATE_RE.test(birthDate) || Number.isNaN(Date.parse(birthDate)))) {
     return json({ error: "La fecha de nacimiento no es válida." }, 422);
   }
@@ -55,7 +56,9 @@ Deno.serve(async (req) => {
     p_name: name,
     p_email: email,
     p_birth_date: birthDate,
+    p_payment_method: method,
     p_consent_version: CONSENT_VERSION,
+    p_hold_hours: HOLD_HOURS,
   });
   if (error) {
     const known = ERRORS[error.message];
@@ -64,37 +67,41 @@ Deno.serve(async (req) => {
     return json({ error: "No hemos podido reservar tu entrada. Inténtalo de nuevo." }, 500);
   }
 
+  const pay = paymentDetails();
+  const amount = money(order.amount_cents, order.currency);
+
+  // Las instrucciones también van por email por si el comprador cierra la página.
+  // Si el email falla, el pedido sigue siendo válido: las instrucciones se ven en pantalla.
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      locale: "es",
-      customer_email: email,
-      client_reference_id: order.order_id,
-      metadata: { order_id: order.order_id },
-      payment_intent_data: { metadata: { order_id: order.order_id } },
-      line_items: [{
-        quantity: 1,
-        price_data: {
-          currency: order.currency,
-          unit_amount: order.amount_cents,
-          product_data: { name: `Entrada · ${order.event_name}` },
-        },
-      }],
-      // Stripe exige al menos 30 minutos; la reserva en la base de datos dura 35.
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-      success_url: `${SITE_URL}/gracias.html?e=${encodeURIComponent(order.event_slug)}`,
-      cancel_url: `${SITE_URL}/?e=${encodeURIComponent(order.event_slug)}&cancelado=1`,
-    }, { idempotencyKey: `checkout-${order.order_id}` });
-
-    const { error: upd } = await admin.from("orders")
-      .update({ stripe_session_id: session.id })
-      .eq("id", order.order_id);
-    if (upd) console.error("guardar stripe_session_id", upd);
-
-    return json({ url: session.url });
+    await sendMail({
+      to: email,
+      ...renderOrderEmail({
+        reference: order.reference,
+        attendeeName: name,
+        eventName: order.event_name,
+        amount,
+        method,
+        bizumPhone: pay.bizum_phone,
+        iban: pay.iban,
+        holder: pay.holder,
+        holdUntil: new Date(order.expires_at),
+        timeZone: EVENT_TIMEZONE,
+        organizerName: env("ORGANIZER_NAME"),
+      }),
+      tag: "order",
+      idempotencyKey: `order-email-${order.order_id}`,
+    });
   } catch (e) {
-    console.error("stripe.checkout.sessions.create", e);
-    await admin.rpc("expire_order", { p_order_id: order.order_id });
-    return json({ error: "No hemos podido abrir el pago. Inténtalo de nuevo." }, 502);
+    console.error("email de instrucciones", e);
   }
+
+  return json({
+    reference: order.reference,
+    payment_method: method,
+    amount,
+    event_name: order.event_name,
+    email,
+    expires_at: order.expires_at,
+    ...pay,
+  });
 });

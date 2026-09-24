@@ -1,5 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import Stripe from "npm:stripe@17.7.0";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.1";
 
 export function env(name: string): string {
   const value = Deno.env.get(name);
@@ -12,10 +11,27 @@ export const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROL
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-// Sin apiVersion explícita: se usa la versión que fija la librería (estable al actualizar el paquete).
-export const stripe = new Stripe(env("STRIPE_SECRET_KEY"), {
-  httpClient: Stripe.createFetchHttpClient(),
-});
+/**
+ * Cliente que actúa COMO el usuario que llama (su token de sesión). Postgres comprueba la firma del
+ * token y las funciones SQL deciden con is_organizer() si puede hacer la operación.
+ */
+export function asCaller(req: Request): SupabaseClient | null {
+  const auth = req.headers.get("Authorization");
+  if (!auth?.startsWith("Bearer ")) return null;
+  return createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: auth } },
+  });
+}
 
 export const SITE_URL = env("SITE_URL").replace(/\/$/, "");
 export const EVENT_TIMEZONE = Deno.env.get("EVENT_TIMEZONE") ?? "Europe/Madrid";
+
+/** Datos para que el comprador pague. Se muestran en la web y en el email. */
+export function paymentDetails() {
+  return {
+    bizum_phone: Deno.env.get("BIZUM_PHONE") ?? "",
+    iban: Deno.env.get("BANK_IBAN") ?? "",
+    holder: Deno.env.get("BANK_HOLDER") ?? env("ORGANIZER_NAME"),
+  };
+}

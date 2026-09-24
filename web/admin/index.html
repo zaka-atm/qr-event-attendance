@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Panel de pagos</title>
+  <meta name="theme-color" content="#121110">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="../checkin/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../checkin/checkin.css">
+  <link rel="stylesheet" href="admin.css">
+  <script src="../config.js"></script>
+  <script src="../checkin/vendor/supabase-2.117.1.js"></script>
+  <script src="admin.js" defer></script>
+</head>
+<body>
+
+<!-- Inicio de sesión (la misma cuenta que en la app de la puerta) -->
+<section class="screen" id="screen-login" hidden>
+  <div class="stack center">
+    <img src="../checkin/icons/icon.svg" width="72" height="72" alt="">
+    <h1>Panel de pagos</h1>
+    <p class="muted">Confirma los Bizum y transferencias para enviar las entradas.</p>
+  </div>
+  <form class="stack" id="login-form">
+    <div class="field">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="login-password">Contraseña</label>
+      <input id="login-password" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="error" id="login-error" role="alert" hidden></p>
+    <button class="btn primary" type="submit" id="login-btn">Entrar</button>
+  </form>
+</section>
+
+<!-- Panel -->
+<section class="screen wide" id="screen-panel" hidden>
+  <header class="bar">
+    <div class="stack tight">
+      <span class="eyebrow">Panel de pagos</span>
+      <label class="sr-only" for="event-select">Evento</label>
+      <select id="event-select" class="event-select"></select>
+    </div>
+    <nav class="stack tight right">
+      <a class="link" href="../checkin/">Ir a la puerta</a>
+      <button class="link" type="button" id="logout">Cerrar sesión</button>
+    </nav>
+  </header>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="tabs" role="tablist" aria-label="Pedidos">
+    <button class="tab" role="tab" type="button" id="tab-pending" aria-selected="true">Pendientes <span id="count-pending">0</span></button>
+    <button class="tab" role="tab" type="button" id="tab-paid" aria-selected="false">Pagados <span id="count-paid">0</span></button>
+  </div>
+
+  <div class="field">
+    <label class="sr-only" for="search">Buscar</label>
+    <input id="search" type="search" placeholder="Buscar por referencia, nombre o email" autocomplete="off">
+  </div>
+
+  <p class="toast" id="toast" role="status" hidden></p>
+  <p class="error" id="panel-error" role="alert" hidden></p>
+  <ul class="orders" id="orders" aria-live="polite"></ul>
+  <p class="muted empty" id="empty" hidden></p>
+</section>
+
+</body>
+</html>

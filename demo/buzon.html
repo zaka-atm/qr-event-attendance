@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buzón de la demo</title>
+  <link rel="icon" href="../checkin/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
+  <link rel="stylesheet" href="demo.css">
+  <script src="../config.js"></script>
+  <script src="vendor/qrcode-generator-1.4.4.js"></script>
+  <script src="buzon.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <div class="stack tight-stack">
+      <h1 class="demo-title">Buzón</h1>
+      <p class="hint">Aquí aparecen los emails que la app enviaría de verdad a los compradores: primero las instrucciones de pago y, cuando confirmas el pago en el panel, la entrada con su QR.</p>
+    </div>
+    <ul class="mail-list" id="mails"></ul>
+    <p class="notice" id="empty" hidden>Todavía no hay emails. Reserva una entrada en «Comprar».</p>
+  </main>
+</body>
+</html>

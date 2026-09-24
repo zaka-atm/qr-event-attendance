@@ -99,3 +99,69 @@ export function renderTicketEmail(d: TicketEmailData): { subject: string; html: 
 
   return { subject, html, text };
 }
+
+// ---------------------------------------------------------------------------
+// Email de "pedido recibido" con las instrucciones de pago (Bizum / transferencia)
+// ---------------------------------------------------------------------------
+
+export interface OrderEmailData {
+  reference: string;
+  attendeeName: string;
+  eventName: string;
+  amount: string;           // ya formateado, p. ej. "15,00 €"
+  method: "bizum" | "transfer";
+  bizumPhone: string;
+  iban: string;
+  holder: string;
+  holdUntil: Date;
+  timeZone: string;
+  organizerName: string;
+}
+
+export function renderOrderEmail(d: OrderEmailData): { subject: string; html: string; text: string } {
+  const until = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: d.timeZone,
+  }).format(d.holdUntil);
+  const firstName = d.attendeeName.split(/\s+/)[0] ?? d.attendeeName;
+  const how = d.method === "bizum"
+    ? `Haz un Bizum de <b>${esc(d.amount)}</b> al <b>${esc(d.bizumPhone)}</b>`
+    : `Haz una transferencia de <b>${esc(d.amount)}</b> a la cuenta <b>${esc(d.iban)}</b> (titular: ${esc(d.holder)})`;
+  const howText = d.method === "bizum"
+    ? `Haz un Bizum de ${d.amount} al ${d.bizumPhone}`
+    : `Haz una transferencia de ${d.amount} a la cuenta ${d.iban} (titular: ${d.holder})`;
+
+  const subject = `Pedido ${d.reference}: cómo pagar tu entrada para ${d.eventName}`;
+  const html = `<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#E9E2D6;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E9E2D6;">
+<tr><td align="center" style="padding:24px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;font-family:Helvetica,Arial,sans-serif;color:#1A1714;background:#FFFFFF;border-radius:16px;">
+    <tr><td style="padding:32px;">
+      <div style="font-size:13px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#5C544A;">Pedido recibido</div>
+      <div style="font-family:Georgia,serif;font-size:26px;font-weight:bold;padding-top:8px;">${esc(d.eventName)}</div>
+      <p style="font-size:16px;line-height:1.5;">Hola <b>${esc(firstName)}</b>, hemos reservado tu plaza. Para recibir la entrada:</p>
+      <p style="font-size:16px;line-height:1.5;">${how} con este concepto:</p>
+      <div style="font-family:'Courier New',monospace;font-size:34px;font-weight:bold;letter-spacing:6px;text-align:center;padding:16px;background:#F4EFE6;border-radius:10px;">${esc(d.reference)}</div>
+      <p style="font-size:16px;line-height:1.5;">Cuando comprobemos el pago te enviaremos la entrada con el código QR a este email.
+        La reserva se mantiene hasta el <b>${esc(until)}</b>.</p>
+      <p style="font-size:13px;line-height:1.5;color:#5C544A;">Si no has hecho tú este pedido, ignora este email. ${esc(d.organizerName)}</p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+  const text = [
+    `Hola ${firstName}:`,
+    ``,
+    `Hemos reservado tu plaza para ${d.eventName}. Para recibir la entrada:`,
+    `${howText} con el concepto ${d.reference}.`,
+    ``,
+    `Cuando comprobemos el pago te enviaremos la entrada con el código QR. La reserva se mantiene hasta el ${until}.`,
+    ``,
+    d.organizerName,
+  ].join("\n");
+  return { subject, html, text };
+}

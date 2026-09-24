@@ -1,0 +1,29 @@
+/* Estilos de las páginas auxiliares de la demo (buzón y QR de ejemplo). */
+.tight-stack { gap: 8px; }
+.demo-title { font-size: 34px; }
+.wide-page { max-width: 880px; }
+
+.mail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.mail { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.mail summary { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.mail summary::-webkit-details-marker { display: none; }
+.mail[open] summary { border-bottom: 1px dashed var(--line); }
+.mail summary:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.mail-to, .mail-at { font-size: 13px; color: var(--muted); }
+.mail-body { display: flex; flex-direction: column; gap: 12px; align-items: stretch; padding: 16px; }
+.mail-body p { margin: 0; font-size: 16px; }
+.mail-ref { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 30px; font-weight: 700; letter-spacing: 0.18em; text-align: center; padding: 12px; background: var(--paper); border-radius: 10px; }
+.mail-ref.small { font-size: 20px; padding: 6px; background: transparent; }
+.ticket-mail { align-items: center; text-align: center; }
+.ticket-head { align-self: stretch; display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 12px; background: var(--ink); color: var(--paper); text-align: left; }
+.ticket-head .when { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #CFC6B8; }
+.ticket-head strong { font-family: var(--display); font-size: 24px; }
+.ticket-head span:last-child { font-size: 14px; color: #E4DDD1; }
+.ticket-mail .btn { align-self: stretch; }
+.qr { image-rendering: pixelated; background: #FFFFFF; border-radius: 6px; max-width: 100%; height: auto; }
+
+.qr-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.qr-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; background: var(--card); border: 2px solid var(--line); border-radius: 14px; text-align: center; }
+.qr-card.ok { border-color: var(--ok); }
+.qr-card.used { border-color: var(--danger); }
+.small-btn { height: 48px; font-size: 16px; width: 100%; }

@@ -3,9 +3,10 @@
 project_id = "qr-event-attendance"
 
 # Público: lo llama la página de compra con la clave anónima/publicable.
-[functions.create-checkout]
+[functions.create-order]
 verify_jwt = false
 
-# Público: lo llama Stripe. La autenticidad se comprueba con la firma Stripe-Signature.
-[functions.stripe-webhook]
+# Lo llama el panel de pagos con la sesión del organizador. El token lo verifica Postgres
+# (y las funciones SQL comprueban is_organizer), así que funciona con claves JWT y con las nuevas.
+[functions.manage-order]
 verify_jwt = false

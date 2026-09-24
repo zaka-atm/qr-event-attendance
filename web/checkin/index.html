@@ -83,6 +83,7 @@
   <p class="footnote" id="sync-info"></p>
   <div class="footlinks">
     <button class="link" type="button" id="issues-btn" hidden>Incidencias (<span id="issues-count">0</span>)</button>
+    <a class="link" href="../admin/">Pagos</a>
     <button class="link" type="button" id="change-event">Cambiar evento</button>
     <button class="link" type="button" id="logout-2">Cerrar sesión</button>
   </div>
@@ -112,6 +113,9 @@
       <input id="manual-input" type="search" autocomplete="off" autocapitalize="characters" placeholder="Ej.: A1B2C3D4 o García">
     </div>
     <ul class="results" id="manual-results" aria-live="polite"></ul>
+    <label class="btn dark photo-btn" for="photo-input">Leer QR de una foto</label>
+    <input class="sr-only" id="photo-input" type="file" accept="image/*" capture="environment">
+    <p class="error" id="photo-error" role="alert" hidden></p>
     <button class="btn dark" value="cancel" type="submit">Cerrar</button>
   </form>
 </dialog>

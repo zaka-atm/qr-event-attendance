@@ -1,5 +1,6 @@
-// Página de compra: lista eventos publicados, recoge los datos mínimos y abre Stripe Checkout.
-// No crea entradas: solo pide a la función create-checkout una sesión de pago.
+// Página de compra: lista eventos publicados, recoge los datos mínimos y reserva plaza.
+// No crea entradas: la función create-order devuelve una referencia para pagar por Bizum o
+// transferencia, y la entrada se envía cuando un organizador confirma el pago.
 (() => {
   "use strict";
 
@@ -55,7 +56,7 @@
     $("ev-venue").textContent = ev.venue;
     $("ev-price").textContent = money(ev.price_cents, ev.currency);
     $("ev-kind").textContent = ev.min_age ? `Entrada general · +${ev.min_age}` : "Entrada general";
-    $("pay").textContent = `Pagar ${money(ev.price_cents, ev.currency)}`;
+    $("pay").textContent = `Reservar · ${money(ev.price_cents, ev.currency)}`;
 
     const birth = $("birth_date");
     if (ev.collect_birth_date) {
@@ -90,6 +91,7 @@
     if (name.length < 2) return ["name", "Escribe tu nombre y apellidos."];
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return ["email", "El email no es válido."];
     if (ev.collect_birth_date && !birth) return ["birth_date", "Indica tu fecha de nacimiento."];
+    if (!document.querySelector("input[name=payment_method]:checked")) return ["pm-bizum", "Elige cómo vas a pagar."];
     if (!$("consent").checked) return ["consent", "Debes aceptar la política de privacidad para continuar."];
     return null;
   }
@@ -109,10 +111,10 @@
     const btn = $("pay");
     const label = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "Abriendo el pago…";
+    btn.textContent = "Reservando…";
 
     try {
-      const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/create-checkout`, {
+      const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: cfg.SUPABASE_ANON_KEY },
         body: JSON.stringify({
@@ -120,13 +122,14 @@
           name: $("name").value,
           email: $("email").value,
           birth_date: ev.collect_birth_date ? $("birth_date").value : null,
+          payment_method: document.querySelector("input[name=payment_method]:checked").value,
           consent: $("consent").checked,
           website: $("website").value,
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.url) throw new Error(body.error || "No hemos podido abrir el pago. Inténtalo de nuevo.");
-      location.assign(body.url);
+      if (!res.ok || !body.reference) throw new Error(body.error || "No hemos podido reservar tu entrada. Inténtalo de nuevo.");
+      showDone(body);
     } catch (err) {
       show(errBox, err instanceof TypeError ? "Sin conexión. Revisa tu internet e inténtalo de nuevo." : err.message);
       btn.disabled = false;
@@ -134,9 +137,47 @@
     }
   }
 
+  function showDone(o) {
+    const bizum = o.payment_method === "bizum";
+    $("done-email").textContent = o.email;
+    $("done-how").textContent = bizum
+      ? "Haz un Bizum con estos datos desde la app de tu banco:"
+      : "Haz una transferencia con estos datos:";
+    $("done-amount").textContent = o.amount;
+    $("done-dest-label").textContent = bizum ? "Bizum al teléfono" : "IBAN";
+    $("done-dest").textContent = bizum ? o.bizum_phone : o.iban;
+    $("done-holder").textContent = o.holder;
+    $("done-holder-row").hidden = bizum;
+    $("done-ref").textContent = o.reference;
+    $("done-until").textContent = new Intl.DateTimeFormat("es-ES", {
+      weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: cfg.TIME_ZONE,
+    }).format(new Date(o.expires_at));
+    $("buy").hidden = true;
+    show($("done"));
+    window.scrollTo({ top: 0 });
+    $("done").querySelector("h1").focus?.();
+  }
+
+  // Botones "Copiar": copian el texto del elemento indicado; si el navegador no deja, lo seleccionan.
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    const el = $(btn.dataset.copy);
+    const text = el.textContent.replace(/\s+/g, btn.dataset.copy === "done-dest" ? "" : " ").trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "Copiado";
+      setTimeout(() => { btn.textContent = "Copiar"; }, 1500);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+    }
+  });
+
   async function main() {
     $("brand").textContent = cfg.BRAND;
-    if (params.get("cancelado")) show($("cancelled"));
 
     let events;
     try {

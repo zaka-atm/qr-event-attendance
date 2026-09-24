@@ -2,21 +2,22 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { admin, env, EVENT_TIMEZONE, SITE_URL } from "./env.ts";
 import { ticketQrPng } from "./qr.ts";
 import { renderTicketEmail, shortCode } from "./email-template.ts";
+import { sendMail } from "./resend.ts";
 
 const QR_CID = "qr-entrada";
 
 /**
  * Genera el QR y envía la entrada por Resend. Marca email_status en la base de datos.
- * Lanza un error si el envío falla, para que el webhook devuelva 500 y Stripe reintente.
+ * `attempt` distingue un reenvío pedido por el organizador de una repetición accidental.
  */
-export async function deliverTicket(ticketId: string): Promise<void> {
+export async function deliverTicket(ticketId: string, attempt = "1"): Promise<"sent" | "failed" | "skipped"> {
   const { data: ticket, error } = await admin
     .from("tickets")
     .select("id, name, email, email_status, anonymized_at, events(name, venue, starts_at)")
     .eq("id", ticketId)
     .single();
   if (error) throw error;
-  if (ticket.email_status === "sent" || !ticket.email || ticket.anonymized_at) return;
+  if (ticket.email_status === "sent" || !ticket.email || ticket.anonymized_at) return "skipped";
 
   // deno-lint-ignore no-explicit-any
   const event = ticket.events as any;
@@ -34,39 +35,24 @@ export async function deliverTicket(ticketId: string): Promise<void> {
     qrContentId: QR_CID,
   });
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${env("RESEND_API_KEY")}`,
-      "Content-Type": "application/json",
-      // Si el webhook se reintenta, Resend no manda el mismo email dos veces (ventana de 24 h).
-      "Idempotency-Key": `ticket-email-${ticket.id}`,
-    },
-    body: JSON.stringify({
-      from: env("EMAIL_FROM"),
-      to: [ticket.email],
-      reply_to: Deno.env.get("EMAIL_REPLY_TO") || undefined,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-      attachments: [{
-        filename: `entrada-${shortCode(ticket.id)}.png`,
-        content: encodeBase64(png),
-        content_id: QR_CID,
-      }],
-      tags: [{ name: "type", value: "ticket" }],
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = (await res.text()).slice(0, 500);
+  try {
+    await sendMail({
+      to: ticket.email,
+      ...mail,
+      tag: "ticket",
+      idempotencyKey: `ticket-email-${ticket.id}-${attempt}`,
+      attachments: [{ filename: `entrada-${shortCode(ticket.id)}.png`, content: encodeBase64(png), content_id: QR_CID }],
+    });
+  } catch (e) {
     await admin.from("tickets")
-      .update({ email_status: "failed", email_error: `${res.status} ${detail}` })
+      .update({ email_status: "failed", email_error: String((e as Error).message).slice(0, 500) })
       .eq("id", ticket.id);
-    throw new Error(`Resend respondió ${res.status}: ${detail}`);
+    console.error("deliverTicket", e);
+    return "failed";
   }
 
   await admin.from("tickets")
     .update({ email_status: "sent", email_sent_at: new Date().toISOString(), email_error: null })
     .eq("id", ticket.id);
+  return "sent";
 }

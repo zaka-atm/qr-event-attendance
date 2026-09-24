@@ -1,0 +1,133 @@
+<title>Entradas QR demo</title>
+<style>
+@font-face { font-family: "Bricolage Grotesque"; src: url("app/assets/fonts/bricolage-grotesque.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Instrument Sans"; src: url("app/assets/fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+:root {
+  --bg: #F4EFE6; --surface: #FFFDF8; --ink: #1A1714; --muted: #5C544A; --line: #CFC6B8;
+  --accent: #2B3A8C; --accent-ink: #FFFFFF; --soft: #E9E2D6; --ok: #0E7A3E; --bad: #B42318;
+  --display: "Bricolage Grotesque", Georgia, serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121110; --surface: #1E1C1A; --ink: #F4EFE6; --muted: #A89F92; --line: #3A3631;
+    --accent: #A9B4F5; --accent-ink: #121110; --soft: #26231F; --ok: #4ADE80; --bad: #FF8A7A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121110; --surface: #1E1C1A; --ink: #F4EFE6; --muted: #A89F92; --line: #3A3631;
+  --accent: #A9B4F5; --accent-ink: #121110; --soft: #26231F; --ok: #4ADE80; --bad: #FF8A7A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: flex; flex-direction: column; gap: 28px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--display); font-size: clamp(40px, 9vw, 64px); line-height: 1; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+p { margin: 0; }
+.lead { font-size: 19px; max-width: 60ch; color: var(--muted); }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: step; }
+.step { display: grid; grid-template-columns: 44px 1fr; gap: 4px 16px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.step > * { grid-column: 2; min-width: 0; }
+.step::before { counter-increment: step; content: counter(step); grid-column: 1; grid-row: 1 / span 4; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 20px; font-weight: 800; background: var(--ink); color: var(--bg); }
+.step .who { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.step p { color: var(--muted); font-size: 16px; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.go { display: inline-flex; align-items: center; min-height: 48px; padding: 10px 18px; line-height: 1.25; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 700; text-decoration: none; }
+.go:hover { filter: brightness(1.08); }
+.go.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.go:focus-visible, button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.note { display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px; background: var(--soft); }
+.note ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.status { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.reset { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.screens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.screen-chip { padding: 14px 10px; border-radius: 12px; text-align: center; font-family: var(--display); font-weight: 800; font-size: 17px; color: #FFFFFF; line-height: 1.15; }
+.screen-chip small { display: block; font-family: var(--body); font-weight: 500; font-size: 12px; opacity: 0.9; padding-top: 4px; }
+.screen-chip.g { background: #0E7A3E; }
+.screen-chip.r { background: #B42318; }
+@media (max-width: 480px) { .screens { grid-template-columns: 1fr; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">Demo · datos de ejemplo</span>
+    <h1>Entradas QR</h1>
+    <p class="lead">Prueba el recorrido completo: reservar una entrada, confirmar el Bizum o la transferencia, recibir el email con el QR y validarlo en la puerta. Todo se guarda solo en este navegador.</p>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <span class="who">Asistente</span>
+      <h2>Reserva una entrada</h2>
+      <p>Rellena el formulario de la «Fiesta de Otoño», elige Bizum o transferencia y verás la referencia para el concepto del pago.</p>
+      <div class="links"><a class="go" href="app/index.html?e=fiesta-otono">Abrir la página de compra</a></div>
+    </li>
+    <li class="step">
+      <span class="who">Organizador</span>
+      <h2>Confirma el pago</h2>
+      <p>En el panel de pagos aparece tu reserva como pendiente. Pulsa «Confirmar pago» y la entrada sale por email. El usuario y la contraseña de la demo ya están rellenados.</p>
+      <div class="links"><a class="go" href="app/admin/index.html">Abrir el panel de pagos</a></div>
+    </li>
+    <li class="step">
+      <span class="who">Asistente</span>
+      <h2>Mira el email con la entrada</h2>
+      <p>El buzón muestra los emails que se enviarían de verdad: primero las instrucciones de pago y después la entrada con su QR.</p>
+      <div class="links"><a class="go" href="app/demo/buzon.html">Abrir el buzón</a></div>
+    </li>
+    <li class="step">
+      <span class="who">Puerta</span>
+      <h2>Valida la entrada</h2>
+      <p>Desde el email, pulsa «Probar en la puerta». La primera vez sale en verde; si la vuelves a probar, en rojo con la hora a la que entró.</p>
+      <div class="links">
+        <a class="go" href="app/checkin/index.html">Abrir la puerta</a>
+        <a class="go alt" href="app/demo/entradas.html">QR de ejemplo</a>
+      </div>
+    </li>
+  </ol>
+
+  <div class="screens" aria-label="Resultados posibles en la puerta">
+    <div class="screen-chip g">¡Bienvenido!<small>Entrada válida</small></div>
+    <div class="screen-chip r">Entrada ya utilizada<small>Con la hora de entrada</small></div>
+    <div class="screen-chip r">Entrada no válida<small>El código no existe</small></div>
+  </div>
+
+  <section class="note" aria-labelledby="limits">
+    <h2 id="limits">Qué cambia respecto a la app real</h2>
+    <ul>
+      <li>Aquí no se puede usar la cámara. Usa «Probar en la puerta», busca por nombre o código, o lee el QR desde una foto o captura.</li>
+      <li>No se envían emails ni se mueve dinero: los emails aparecen en el buzón y el pago lo das por bueno tú en el panel.</li>
+      <li>Los datos son de ejemplo y solo existen en este navegador. En la app real se guardan en tu base de datos.</li>
+    </ul>
+  </section>
+
+  <div class="row">
+    <p class="status" id="status">Datos de ejemplo listos.</p>
+    <button class="reset" type="button" id="reset">Reiniciar demo</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const status = document.getElementById("status");
+  try {
+    const db = JSON.parse(localStorage.getItem("demo-db-v1") || "null");
+    if (db) {
+      const pending = db.orders.filter((o) => o.status === "pending").length;
+      const inside = db.tickets.filter((t) => t.checked_in_at).length;
+      status.textContent = `${pending} pagos pendientes · ${db.tickets.length} entradas vendidas · ${inside} personas dentro · ${db.outbox.length} emails en el buzón`;
+    }
+  } catch { /* sin almacenamiento */ }
+  document.getElementById("reset").addEventListener("click", () => {
+    try {
+      for (const k of Object.keys(localStorage)) if (k.startsWith("demo-") || k.startsWith("checkin-")) localStorage.removeItem(k);
+      indexedDB.deleteDatabase("checkin");
+    } catch { /* nada */ }
+    status.textContent = "Demo reiniciada: vuelves a tener los datos de ejemplo.";
+  });
+})();
+</script>

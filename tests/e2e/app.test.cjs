@@ -47,7 +47,17 @@ function mockSupabase() {
       [T_EVA, { id: T_EVA, name: "Eva Núñez", birth_date: "1988-12-24", checked_in_at: new Date(Date.now() - 600e3).toISOString() }],
     ]),
     offline: false,
-    checkoutBodies: [],
+    orderBodies: [],
+    manageCalls: [],
+    orders: [
+      { id: "0f000000-0000-4000-8000-000000000001", event_id: EVENT.id, reference: "K7M2QX", status: "pending", payment_method: "bizum",
+        name: "Lucía Fernández", email: "lucia@example.com", amount_cents: 1500, currency: "eur",
+        expires_at: new Date(Date.now() + 48 * 3600e3).toISOString(), paid_at: null, created_at: new Date(Date.now() - 3600e3).toISOString(), tickets: [] },
+      { id: "0f000000-0000-4000-8000-000000000002", event_id: EVENT.id, reference: "ZR8K2P", status: "paid", payment_method: "transfer",
+        name: null, email: null, amount_cents: 1500, currency: "eur", expires_at: new Date().toISOString(),
+        paid_at: new Date(Date.now() - 7200e3).toISOString(), created_at: new Date(Date.now() - 9000e3).toISOString(),
+        tickets: [{ id: T_LUIS, name: "Luis Martín", email_status: "failed" }] },
+    ],
   };
 
   async function handle(route) {
@@ -82,11 +92,22 @@ function mockSupabase() {
       }
       return json({ status: "used", name: t.name, birth_date: t.birth_date, checked_in_at: t.checked_in_at });
     }
-    if (url.pathname === "/functions/v1/create-checkout") {
+    if (url.pathname === "/rest/v1/orders") return json(db.orders.filter((o) => ["pending", "paid"].includes(o.status)));
+    if (url.pathname === "/functions/v1/create-order") {
       const body = JSON.parse(req.postData());
-      db.checkoutBodies.push(body);
+      db.orderBodies.push(body);
       if (body.name === "Agotado") return json({ error: "Lo sentimos, las entradas están agotadas." }, 409);
-      return json({ url: "https://checkout.stripe.test/pay/cs_test_123" });
+      return json({ reference: "Q4M8TZ", payment_method: body.payment_method, amount: "15,00 €", event_name: EVENT.name, email: body.email,
+        expires_at: new Date(Date.now() + 72 * 3600e3).toISOString(), bizum_phone: "600 000 000", iban: "ES00 1111 2222 3333 4444 5555", holder: "Mi Sala S.L." });
+    }
+    if (url.pathname === "/functions/v1/manage-order") {
+      assert.match(req.headers()["authorization"] ?? "", /^Bearer ey/, "manage-order lleva el token del organizador");
+      const body = JSON.parse(req.postData());
+      db.manageCalls.push(body);
+      const o = db.orders.find((x) => x.id === body.order_id);
+      if (body.action === "confirm") { o.status = "paid"; o.paid_at = new Date().toISOString(); o.tickets = [{ id: "t-new", name: o.name, email_status: "sent" }]; return json({ ticket_id: "t-new", created: true, email_status: "sent" }); }
+      if (body.action === "resend") return json({ email_status: "sent" });
+      return json({ cancelled: true });
     }
     throw new Error(`Petición no simulada: ${req.method()} ${url.pathname}`);
   }
@@ -107,7 +128,6 @@ async function main() {
     body: `window.APP_CONFIG = { SUPABASE_URL: "${MOCK}", SUPABASE_ANON_KEY: "anon", BRAND: "Mi Sala", ORGANIZER: "Mi Sala S.L.", RETENTION_DAYS: 30, TIME_ZONE: "Europe/Madrid" };`,
   }));
   await context.route(`${MOCK}/**`, mock.handle);
-  await context.route("https://checkout.stripe.test/**", (route) => route.fulfill({ contentType: "text/html", body: "<h1>Stripe Checkout (simulado)</h1>" }));
 
   const errors = [];
   const page = await context.newPage();
@@ -116,7 +136,7 @@ async function main() {
   // ---- Página de compra ------------------------------------------------------
   await page.goto(`${base}/`);
   await page.getByRole("heading", { name: "Fiesta de Otoño" }).waitFor();
-  assert.match(await page.locator("#pay").textContent(), /Pagar 15,00/);
+  assert.match(await page.locator("#pay").textContent(), /Reservar · 15,00/);
   await page.screenshot({ path: path.join(SHOTS, "01-compra.png"), fullPage: true });
 
   await page.locator("#pay").click();
@@ -132,10 +152,16 @@ async function main() {
   await page.getByText("Lo sentimos, las entradas están agotadas.").waitFor();
 
   await page.fill("#name", "Ana López");
-  await Promise.all([page.waitForURL("https://checkout.stripe.test/**"), page.locator("#pay").click()]);
-  const sent = mock.db.checkoutBodies.at(-1);
-  assert.deepEqual(sent, { event_slug: "fiesta-otono", name: "Ana López", email: "a@example.com", birth_date: "1990-01-01", consent: true, website: "" });
-  console.log("✓ compra: validación, consentimiento, error de aforo y redirección a Stripe");
+  await page.check("#pm-transfer");
+  await page.locator("#pay").click();
+  await page.getByRole("heading", { name: "¡Plaza reservada!" }).waitFor();
+  assert.equal(await page.locator("#done-ref").textContent(), "Q4M8TZ");
+  assert.equal(await page.locator("#done-dest").textContent(), "ES00 1111 2222 3333 4444 5555");
+  assert.ok(await page.locator("#done-holder-row").isVisible(), "la transferencia muestra el titular");
+  const sent = mock.db.orderBodies.at(-1);
+  assert.deepEqual(sent, { event_slug: "fiesta-otono", name: "Ana López", email: "a@example.com", birth_date: "1990-01-01", payment_method: "transfer", consent: true, website: "" });
+  await page.screenshot({ path: path.join(SHOTS, "01b-reservada.png"), fullPage: true });
+  console.log("✓ compra: validación, consentimiento, error de aforo e instrucciones de pago");
 
   // ---- PWA de la puerta: login y evento --------------------------------------
   await page.goto(`${base}/checkin/`);
@@ -224,6 +250,28 @@ async function main() {
   await page.screenshot({ path: path.join(SHOTS, "07-incidencias.png") });
   await page.getByRole("button", { name: "Cerrar" }).last().click();
   console.log("✓ puerta: validación sin conexión, cola, sincronización e incidencia de doble entrada");
+
+  // ---- Panel de pagos (misma sesión que la puerta) ------------------------------------
+  await page.goto(`${base}/admin/`);
+  await page.locator(".order-ref", { hasText: "K7M2QX" }).waitFor();
+  assert.equal(await page.locator("#count-pending").textContent(), "1");
+  await page.getByRole("button", { name: "Confirmar pago" }).click();
+  await page.getByText("¿Has recibido un Bizum de 15,00 € con el concepto K7M2QX?").waitFor();
+  await page.getByRole("button", { name: "Sí, enviar la entrada" }).click();
+  await page.getByText("Pago de K7M2QX confirmado. Entrada enviada a lucia@example.com.").waitFor();
+  assert.deepEqual(mock.db.manageCalls[0], { action: "confirm", order_id: "0f000000-0000-4000-8000-000000000001" });
+  await page.waitForFunction(() => document.getElementById("count-pending").textContent === "0");
+
+  await page.getByRole("tab", { name: /Pagados/ }).click();
+  const luis = page.locator(".order", { hasText: "ZR8K2P" });
+  await luis.getByText("El email falló").waitFor();
+  await luis.getByRole("button", { name: "Reenviar entrada" }).click();
+  await luis.locator("input[type=email]").fill("luis.bien@example.com");
+  await page.screenshot({ path: path.join(SHOTS, "08-pagos-reenviar.png"), fullPage: true });
+  await luis.getByRole("button", { name: "Reenviar entrada" }).click();
+  await page.getByText("Entrada de ZR8K2P reenviada.").waitFor();
+  assert.deepEqual(mock.db.manageCalls[1], { action: "resend", ticket_id: T_LUIS, email: "luis.bien@example.com" });
+  console.log("✓ pagos: confirmar pago y reenviar entrada a un email corregido");
 
   assert.deepEqual(errors, [], `errores de JavaScript: ${errors.join(" | ")}`);
   await browser.close();

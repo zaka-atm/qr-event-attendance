@@ -1,13 +1,15 @@
 {
   "name": "qr-event-attendance",
   "private": true,
-  "description": "Venta de entradas con QR y control de acceso (Supabase + Stripe + Resend)",
+  "description": "Venta de entradas con QR, pago por Bizum/transferencia y control de acceso (Supabase + Resend)",
   "scripts": {
     "icons": "node scripts/make-icons.mjs",
     "test:db": "bash tests/db/run.sh",
     "test:functions": "deno test -A tests/functions/",
     "test:e2e": "node tests/e2e/app.test.cjs",
-    "serve": "npx --yes serve web"
+    "serve": "npx --yes serve web",
+    "demo": "node scripts/build-demo.mjs",
+    "test:demo": "node tests/e2e/demo.test.cjs"
   },
   "devDependencies": {
     "playwright": "^1.56.1"

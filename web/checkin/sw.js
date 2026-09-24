@@ -1,7 +1,7 @@
 // Service worker de la app de la puerta: guarda la "carcasa" de la app para que abra sin conexión.
 // Las llamadas a Supabase NUNCA se cachean aquí (los datos offline van en IndexedDB, desde app.js).
 // Sube VERSION cada vez que cambies alguno de los archivos de SHELL.
-const VERSION = "checkin-v1";
+const VERSION = "checkin-v2";
 const SHELL = [
   "./",
   "./checkin.css",

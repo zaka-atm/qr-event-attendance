@@ -17,15 +17,12 @@
 
     <div class="notice" id="loading" role="status">Cargando eventos…</div>
     <div class="notice error" id="page-error" role="alert" hidden></div>
-    <div class="notice" id="cancelled" role="status" hidden>
-      Has cancelado el pago. No se ha cobrado nada y puedes intentarlo de nuevo.
-    </div>
 
     <!-- Lista de eventos (cuando no se indica ?e=slug y hay varios) -->
-    <section id="event-list" hidden aria-label="Próximos eventos" style="display:flex;flex-direction:column;gap:16px"></section>
+    <section id="event-list" class="stack" hidden aria-label="Próximos eventos"></section>
 
     <!-- Compra de un evento -->
-    <section id="buy" hidden style="display:flex;flex-direction:column;gap:20px">
+    <section id="buy" class="stack" hidden>
       <div class="event-card">
         <div class="when" id="ev-when"></div>
         <h1 id="ev-name"></h1>
@@ -54,6 +51,18 @@
           <span class="hint" id="birth-hint">Solo para comprobar la edad mínima del evento.</span>
         </div>
 
+        <fieldset class="methods-pick">
+          <legend>¿Cómo vas a pagar?</legend>
+          <label class="method" for="pm-bizum">
+            <input id="pm-bizum" type="radio" name="payment_method" value="bizum" checked>
+            <span><strong>Bizum</strong><small>Al momento desde la app de tu banco</small></span>
+          </label>
+          <label class="method" for="pm-transfer">
+            <input id="pm-transfer" type="radio" name="payment_method" value="transfer">
+            <span><strong>Transferencia</strong><small>Puede tardar hasta 1 día laborable</small></span>
+          </label>
+        </fieldset>
+
         <!-- Campo trampa para bots: las personas no lo ven -->
         <div class="hp" aria-hidden="true">
           <label for="website">No rellenes este campo</label>
@@ -67,14 +76,45 @@
 
         <div class="notice error" id="form-error" role="alert" hidden></div>
 
-        <button class="btn" id="pay" type="submit">Pagar</button>
-        <div class="methods"><span>Tarjeta</span><span>·</span><span>Apple Pay</span><span>·</span><span>Google Pay</span></div>
+        <button class="btn" id="pay" type="submit">Reservar entrada</button>
       </form>
 
-      <div class="notice">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-        <span>El pago se hace en Stripe. La entrada se genera cuando Stripe confirma el cobro y te llega por email en unos minutos.</span>
+      <div class="notice" id="how-it-works">
+        <span>Al reservar te damos una referencia para el Bizum o la transferencia. Cuando comprobemos el pago te enviaremos la entrada con el código QR por email.</span>
       </div>
+    </section>
+
+    <!-- Pedido hecho: instrucciones de pago -->
+    <section id="done" class="stack" hidden aria-live="polite">
+      <div class="notice success done-head">
+        <h1>¡Plaza reservada!</h1>
+        <p>Ahora paga para recibir tu entrada. Te hemos enviado estas mismas instrucciones a <b id="done-email"></b>.</p>
+      </div>
+      <div class="pay-box">
+        <p id="done-how"></p>
+        <div class="pay-row">
+          <span class="pay-label">Importe</span>
+          <strong id="done-amount"></strong>
+        </div>
+        <div class="pay-row">
+          <span class="pay-label" id="done-dest-label">Bizum al</span>
+          <strong id="done-dest"></strong>
+          <button class="copy" type="button" data-copy="done-dest">Copiar</button>
+        </div>
+        <div class="pay-row" id="done-holder-row" hidden>
+          <span class="pay-label">Titular</span>
+          <strong id="done-holder"></strong>
+        </div>
+        <div class="pay-row ref">
+          <span class="pay-label">Concepto (obligatorio)</span>
+          <strong class="reference" id="done-ref"></strong>
+          <button class="copy" type="button" data-copy="done-ref">Copiar</button>
+        </div>
+      </div>
+      <div class="notice">
+        <span>Guardamos tu plaza hasta el <b id="done-until"></b>. Si pagas sin poner la referencia en el concepto, tardaremos más en encontrar tu pago.</span>
+      </div>
+      <a href="./" class="back-link">Volver a los eventos</a>
     </section>
   </main>
 </body>

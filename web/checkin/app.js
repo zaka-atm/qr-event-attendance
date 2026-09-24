@@ -669,6 +669,38 @@
     }
   });
 
+  // Foto del QR: para cuando la cámara en directo no funciona (permisos, móvil antiguo...).
+  $("photo-input").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const err = $("photo-error");
+    err.hidden = true;
+    try {
+      const code = await decodeImage(file);
+      if (!code) throw new Error("No se ve ningún QR en la foto. Prueba a hacerla más cerca y con luz.");
+      manual.close();
+      state.lastCode = null;
+      onCode(code);
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+
+  async function decodeImage(file) {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const cx = c.getContext("2d", { willReadFrequently: true });
+    cx.drawImage(bitmap, 0, 0, w, h);
+    const img = cx.getImageData(0, 0, w, h);
+    return window.jsQR(img.data, w, h)?.data ?? null;
+  }
+
   // ------------------------------------------------------------------------
   // Incidencias
   // ------------------------------------------------------------------------
@@ -725,6 +757,9 @@
     if (saved) await selectEvent(saved);
     else await openEvents();
   }
+
+  // La demo usa esto para "escanear" una entrada desde el buzón de ejemplo.
+  window.DEMO_HOOKS?.checkinReady?.((code) => { state.lastCode = null; return onCode(code); }, () => !!state.event);
 
   sb.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT" && state.user) location.reload();
