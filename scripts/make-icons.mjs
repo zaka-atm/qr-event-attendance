@@ -1,10 +1,13 @@
 // Genera los PNG de la PWA (192, 512 y 180 para iOS) a partir de la misma geometría que icon.svg,
 // sin dependencias: rasteriza con supermuestreo y codifica el PNG con zlib.
-// Uso: node scripts/make-icons.mjs
+// Uso: node scripts/make-icons.mjs              (app de la puerta, web/checkin)
+//      node scripts/make-icons.mjs --recepcio   (app de recepció, recepcio/, fondo granate)
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
-const BG = [0x12, 0x11, 0x10], FG = [0xf4, 0xef, 0xe6], GREEN = [0x0e, 0x7a, 0x3e], WHITE = [255, 255, 255];
+const RECEPCIO = process.argv.includes("--recepcio");
+const BG = RECEPCIO ? [0x8b, 0x00, 0x00] : [0x12, 0x11, 0x10];
+const FG = [0xf4, 0xef, 0xe6], GREEN = [0x0e, 0x7a, 0x3e], WHITE = [255, 255, 255];
 
 // Geometría en un lienzo de 512 (igual que icon.svg).
 function colorAt(x, y) {
@@ -75,7 +78,7 @@ function png(size) {
   ]);
 }
 
-const out = new URL("../web/checkin/icons/", import.meta.url);
+const out = new URL(RECEPCIO ? "../recepcio/icons/" : "../web/checkin/icons/", import.meta.url);
 for (const size of [192, 512, 180]) {
   writeFileSync(new URL(`icon-${size}.png`, out), png(size));
   console.log(`icon-${size}.png`);

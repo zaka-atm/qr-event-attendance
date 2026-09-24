@@ -1,4 +1,30 @@
-# Entradas QR
+# Recepció · Congrés Islàmic de Catalunya
+
+App web per a l'equip de recepció: **escaneja el QR que ja reben els assistents** i diu al moment, a pantalla completa, si la persona **pot passar** (verd) o **no** (vermell: ja ha entrat, no ha pagat o codi no vàlid). Funciona amb el full de càlcul de sempre: llegeix «Assistència Pagada» i escriu a «Assistència».
+
+- **App:** carpeta [`recepcio/`](recepcio/) — es publica sola a GitHub Pages: https://zaka-atm.github.io/qr-event-attendance/
+- **Connexió amb el full:** [`apps-script/Codi.gs`](apps-script/Codi.gs) — instal·lació pas a pas a [`apps-script/LLEGEIX-ME.md`](apps-script/LLEGEIX-ME.md)
+- **Mode demostració:** a la pantalla d'inici, «Provar-ho en mode demostració», amb codis QR de prova.
+
+| Inici | Escàner | Pot passar | Ja ha entrat | No ha pagat | Cerca manual | Sense connexió |
+|---|---|---|---|---|---|---|
+| ![](docs/recepcio/01-inici.png) | ![](docs/recepcio/02-escaner.png) | ![](docs/recepcio/03-verd.png) | ![](docs/recepcio/04-vermell-repetit.png) | ![](docs/recepcio/05-vermell-no-pagat.png) | ![](docs/recepcio/06-cerca.png) | ![](docs/recepcio/07-verd-sense-connexio.png) |
+
+**Què fa:**
+- Llegeix el QR del doGet (`…/exec?nom=…&dni=…&numero=…&tipusAsistencia=…`) amb la càmera, o d'una foto.
+- Comprova el DNI contra «Assistència Pagada»: un QR inventat o d'algú que no ha pagat no passa.
+- Registra a «Assistència» amb l'hora, **qui** l'ha registrat i **com** (QR, manual, sense connexió). Detecta també els registres fets amb el sistema antic.
+- Si dues persones escanegen el mateix QR alhora, només una el registra (bloqueig a l'Apps Script).
+- Cerca per nom o DNI per a qui no porta el QR.
+- Sense cobertura: valida amb la llista descarregada (DNI amb hash, no en clar) i envia els registres quan torna la connexió.
+- So i vibració diferents per a verd i vermell, llanterna, pantalla sempre encesa, s'instal·la a la pantalla d'inici.
+
+**Proves:** `node tests/recepcio/backend.test.cjs` (Apps Script amb fulls simulats) i `npm install && node tests/recepcio/app.test.cjs` (navegador amb càmera simulada que mostra un QR).
+
+---
+
+## Sistema complet de venda d'entrades (versió anterior, opcional)
+
 
 Sustituye el sistema de Google Forms + Sheets + Apps Script por una web propia:
 

@@ -9,7 +9,8 @@
     "test:e2e": "node tests/e2e/app.test.cjs",
     "serve": "npx --yes serve web",
     "demo": "node scripts/build-demo.mjs",
-    "test:demo": "node tests/e2e/demo.test.cjs"
+    "test:demo": "node tests/e2e/demo.test.cjs",
+    "test:recepcio": "node tests/recepcio/backend.test.cjs && node tests/recepcio/app.test.cjs"
   },
   "devDependencies": {
     "playwright": "^1.56.1"

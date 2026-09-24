@@ -1,13 +1,12 @@
-# Publica la DEMO (datos de ejemplo, sin Supabase ni emails) en GitHub Pages.
-# Requisito: Settings → Pages → Source: "GitHub Actions".
-# En repositorios privados, GitHub Pages necesita un plan de pago (GitHub Pro, Team o Enterprise).
-name: Publicar demo
+# Publica l'app de recepció (carpeta recepcio/) a GitHub Pages.
+# Requisit: Settings → Pages → Source: "GitHub Actions".
+name: Publicar recepció
 
 on:
   workflow_dispatch:
   push:
     branches: [main, claude/event-ticketing-app-0p1ga3]
-    paths: ["web/**", "demo/**", "scripts/build-demo.mjs", ".github/workflows/demo-pages.yml"]
+    paths: ["recepcio/**", ".github/workflows/demo-pages.yml"]
 
 permissions:
   contents: read
@@ -23,13 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node scripts/build-demo.mjs --static
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist/demo
+          path: recepcio
 
   deploy:
     needs: build

@@ -1,0 +1,17 @@
+{
+  "name": "Recepció · Congrés Islàmic de Catalunya",
+  "short_name": "Recepció",
+  "description": "Escaneja les entrades del Congrés i comprova si la persona pot passar",
+  "lang": "ca",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#140F0E",
+  "theme_color": "#140F0E",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
