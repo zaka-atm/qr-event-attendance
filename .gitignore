@@ -1,0 +1,9 @@
+node_modules/
+tests/e2e/screenshots/
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+supabase/functions/.env
+.DS_Store

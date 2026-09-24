@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Control de acceso</title>
+  <meta name="theme-color" content="#121110">
+  <meta name="robots" content="noindex">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="checkin.css">
+  <script src="../config.js"></script>
+  <script src="vendor/supabase-2.117.1.js"></script>
+  <script src="vendor/jsQR-1.4.0.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- 1. Inicio de sesión (solo organizadores) -->
+<section class="screen" id="screen-login" hidden>
+  <div class="stack center">
+    <img src="icons/icon.svg" width="72" height="72" alt="">
+    <h1>Control de acceso</h1>
+    <p class="muted">Solo para el equipo de la organización.</p>
+  </div>
+  <form class="stack" id="login-form">
+    <div class="field">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="login-password">Contraseña</label>
+      <input id="login-password" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="error" id="login-error" role="alert" hidden></p>
+    <button class="btn primary" type="submit" id="login-btn">Entrar</button>
+  </form>
+</section>
+
+<!-- 2. Elegir evento -->
+<section class="screen" id="screen-events" hidden>
+  <header class="bar">
+    <h1>Elige el evento</h1>
+    <button class="btn ghost small" type="button" id="logout-1">Salir</button>
+  </header>
+  <p class="error" id="events-error" role="alert" hidden></p>
+  <div class="stack" id="event-list"></div>
+</section>
+
+<!-- 3. Escáner -->
+<section class="screen scan" id="screen-scan" hidden>
+  <header class="bar">
+    <div class="stack tight">
+      <span class="eyebrow" id="scan-who">Puerta</span>
+      <span class="title" id="scan-event"></span>
+    </div>
+    <button class="pill" type="button" id="net-pill" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span><span id="net-text">En línea</span>
+    </button>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span class="muted">Dentro</span><strong id="stat-in">0</strong></div>
+    <div class="stat"><span class="muted">Vendidas</span><strong id="stat-total">0</strong></div>
+  </div>
+
+  <div class="viewfinder" id="viewfinder">
+    <video id="video" playsinline muted autoplay></video>
+    <svg class="frame" viewBox="0 0 250 250" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" aria-hidden="true">
+      <path d="M8 60V20a12 12 0 0 1 12-12h40"/><path d="M190 8h40a12 12 0 0 1 12 12v40"/>
+      <path d="M242 190v40a12 12 0 0 1-12 12h-40"/><path d="M60 242H20a12 12 0 0 1-12-12v-40"/>
+    </svg>
+    <p class="viewfinder-msg" id="camera-msg">Apunta a la entrada QR</p>
+  </div>
+
+  <div class="actions">
+    <button class="btn dark" type="button" id="manual-btn">Buscar / código</button>
+    <button class="btn dark" type="button" id="sync-btn">Sincronizar</button>
+  </div>
+  <p class="footnote" id="sync-info"></p>
+  <div class="footlinks">
+    <button class="link" type="button" id="issues-btn" hidden>Incidencias (<span id="issues-count">0</span>)</button>
+    <button class="link" type="button" id="change-event">Cambiar evento</button>
+    <button class="link" type="button" id="logout-2">Cerrar sesión</button>
+  </div>
+</section>
+
+<!-- Resultado a pantalla completa -->
+<div class="result" id="result" hidden role="alertdialog" aria-modal="true" aria-labelledby="result-title">
+  <div class="result-body">
+    <svg class="result-icon" id="icon-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>
+    <svg class="result-icon" id="icon-used" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6.5V12l3.5 2.5"/></svg>
+    <svg class="result-icon" id="icon-bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>
+    <h1 id="result-title"></h1>
+    <div class="result-name" id="result-name"></div>
+    <div class="result-chip" id="result-chip"></div>
+    <div class="result-time" id="result-time" hidden><span>Validada a las</span><strong id="result-time-value"></strong></div>
+    <p class="result-sub" id="result-sub"></p>
+    <p class="result-offline" id="result-offline" hidden>Sin conexión · comprobado con la lista descargada</p>
+    <button class="btn result-next" type="button" id="result-next">Siguiente</button>
+  </div>
+</div>
+
+<!-- Búsqueda manual -->
+<dialog id="manual">
+  <form method="dialog" class="stack" id="manual-form">
+    <div class="field">
+      <label for="manual-input">Nombre o código de la entrada</label>
+      <input id="manual-input" type="search" autocomplete="off" autocapitalize="characters" placeholder="Ej.: A1B2C3D4 o García">
+    </div>
+    <ul class="results" id="manual-results" aria-live="polite"></ul>
+    <button class="btn dark" value="cancel" type="submit">Cerrar</button>
+  </form>
+</dialog>
+
+<!-- Incidencias de sincronización -->
+<dialog id="issues">
+  <form method="dialog" class="stack">
+    <h2>Incidencias</h2>
+    <p class="muted">Entradas que se validaron sin conexión y que el servidor no aceptó (por ejemplo, porque otra puerta ya las había validado).</p>
+    <ul class="results" id="issues-list"></ul>
+    <button class="btn dark" type="button" id="issues-clear">Marcar como revisadas</button>
+    <button class="btn dark" value="cancel" type="submit">Cerrar</button>
+  </form>
+</dialog>
+
+<noscript><p class="error">Esta aplicación necesita JavaScript.</p></noscript>
+</body>
+</html>

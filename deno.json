@@ -1,0 +1,7 @@
+{
+  "nodeModulesDir": "none",
+  "lock": false,
+  "lint": {
+    "rules": { "exclude": ["no-import-prefix"] }
+  }
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entradas</title>
+  <meta name="description" content="Compra tu entrada">
+  <link rel="icon" href="checkin/icons/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+  <script src="config.js"></script>
+  <script src="assets/buy.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <a class="brand" href="./" id="brand">[TU MARCA]</a>
+
+    <div class="notice" id="loading" role="status">Cargando eventos…</div>
+    <div class="notice error" id="page-error" role="alert" hidden></div>
+    <div class="notice" id="cancelled" role="status" hidden>
+      Has cancelado el pago. No se ha cobrado nada y puedes intentarlo de nuevo.
+    </div>
+
+    <!-- Lista de eventos (cuando no se indica ?e=slug y hay varios) -->
+    <section id="event-list" hidden aria-label="Próximos eventos" style="display:flex;flex-direction:column;gap:16px"></section>
+
+    <!-- Compra de un evento -->
+    <section id="buy" hidden style="display:flex;flex-direction:column;gap:20px">
+      <div class="event-card">
+        <div class="when" id="ev-when"></div>
+        <h1 id="ev-name"></h1>
+        <div class="venue" id="ev-venue"></div>
+        <div class="price-row">
+          <span id="ev-kind">Entrada general</span>
+          <span class="price" id="ev-price"></span>
+        </div>
+      </div>
+
+      <div class="notice" id="closed" hidden></div>
+
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="name">Nombre y apellidos</label>
+          <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="120" placeholder="Como aparece en tu DNI">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="tu@email.com" aria-describedby="email-hint">
+          <span class="hint" id="email-hint">Te enviaremos aquí la entrada con el código QR.</span>
+        </div>
+        <div class="field" id="birth-field">
+          <label for="birth_date">Fecha de nacimiento</label>
+          <input id="birth_date" name="birth_date" type="date" autocomplete="bday" aria-describedby="birth-hint">
+          <span class="hint" id="birth-hint">Solo para comprobar la edad mínima del evento.</span>
+        </div>
+
+        <!-- Campo trampa para bots: las personas no lo ven -->
+        <div class="hp" aria-hidden="true">
+          <label for="website">No rellenes este campo</label>
+          <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <label class="consent" for="consent">
+          <input id="consent" name="consent" type="checkbox" required>
+          <span id="consent-text"></span>
+        </label>
+
+        <div class="notice error" id="form-error" role="alert" hidden></div>
+
+        <button class="btn" id="pay" type="submit">Pagar</button>
+        <div class="methods"><span>Tarjeta</span><span>·</span><span>Apple Pay</span><span>·</span><span>Google Pay</span></div>
+      </form>
+
+      <div class="notice">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>El pago se hace en Stripe. La entrada se genera cuando Stripe confirma el cobro y te llega por email en unos minutos.</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

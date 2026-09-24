@@ -1,0 +1,168 @@
+/* Estilos compartidos de la parte pública (compra, gracias, privacidad). */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("fonts/bricolage-grotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("fonts/instrument-sans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+:root {
+  --paper: #F4EFE6;
+  --card: #FFFDF8;
+  --ink: #1A1714;
+  --muted: #5C544A;
+  --line: #CFC6B8;
+  --soft: #E9E2D6;
+  --accent: #2B3A8C;
+  --accent-hover: #1B2566;
+  --danger: #B42318;
+  --ok: #0E7A3E;
+  --display: "Bricolage Grotesque", Georgia, serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.brand {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+h1, h2 { font-family: var(--display); letter-spacing: -0.015em; margin: 0; }
+
+.event-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 18px;
+}
+.event-card .when {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #CFC6B8;
+}
+.event-card h1 { font-size: 34px; line-height: 1.05; font-weight: 800; }
+.event-card .venue { font-size: 15px; color: #E4DDD1; }
+.event-card .price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px dashed var(--muted);
+  font-size: 14px;
+  color: #CFC6B8;
+}
+.event-card .price { font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--paper); }
+
+a.event-link { text-decoration: none; }
+a.event-link:hover .event-card, a.event-link:focus-visible .event-card { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+form { display: flex; flex-direction: column; gap: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 15px; font-weight: 600; }
+.field input {
+  height: 52px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+}
+.field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.hint { font-size: 13px; color: var(--muted); }
+
+.consent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.consent input { width: 24px; height: 24px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+
+.btn {
+  height: 56px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #FFFFFF;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.btn[disabled] { opacity: 0.6; cursor: progress; }
+
+.methods { display: flex; justify-content: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+.notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--soft);
+  font-size: 14px;
+  line-height: 1.45;
+  color: #3D372F;
+}
+.notice svg { flex-shrink: 0; margin-top: 2px; }
+.notice.error { background: #FDE4E1; color: #7A1810; }
+.notice.success { background: #DCF2E4; color: #0B5E30; }
+
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+.prose h1 { font-size: 32px; }
+.prose h2 { font-size: 22px; margin-top: 12px; }
+.prose p, .prose li { font-size: 16px; }
+
+[hidden] { display: none !important; }

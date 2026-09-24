@@ -1,0 +1,11 @@
+# Configuración mínima para la CLI de Supabase (`supabase functions deploy`).
+# Si ejecutas `supabase init` se ampliará con el resto de opciones por defecto.
+project_id = "qr-event-attendance"
+
+# Público: lo llama la página de compra con la clave anónima/publicable.
+[functions.create-checkout]
+verify_jwt = false
+
+# Público: lo llama Stripe. La autenticidad se comprueba con la firma Stripe-Signature.
+[functions.stripe-webhook]
+verify_jwt = false

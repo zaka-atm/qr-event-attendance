@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pago recibido</title>
+  <link rel="icon" href="checkin/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <!-- Esta página NO confirma ni crea nada: solo informa. La entrada la crea el webhook de Stripe. -->
+  <main class="page">
+    <a class="brand" href="./">Entradas</a>
+    <div class="notice success" role="status" style="flex-direction:column;gap:8px;padding:20px">
+      <h1 style="font-size:30px">¡Gracias por tu compra!</h1>
+      <p style="margin:0;font-size:16px">
+        En cuanto Stripe nos confirme el pago te enviaremos la entrada con el código QR por email.
+        Suele tardar menos de un minuto.
+      </p>
+    </div>
+    <div class="notice">
+      <span>
+        ¿No te llega? Revisa la carpeta de spam o promociones. Si en 15 minutos sigues sin
+        recibirla, responde al email de confirmación de pago de Stripe o escríbenos
+        indicando el email con el que compraste.
+      </span>
+    </div>
+    <a href="./" style="font-weight:600">Volver a los eventos</a>
+  </main>
+</body>
+</html>
