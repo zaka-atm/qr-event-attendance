@@ -13,7 +13,8 @@ App web per a l'equip de recepció: **escaneja el QR que ja reben els assistents
 **Què fa:**
 - Llegeix el QR del doGet (`…/exec?nom=…&dni=…&numero=…&tipusAsistencia=…`) amb la càmera, o d'una foto.
 - Comprova el DNI contra «Assistència Pagada»: un QR inventat o d'algú que no ha pagat no passa.
-- Registra a «Assistència» amb l'hora, **qui** l'ha registrat i **com** (QR, manual, sense connexió). Detecta també els registres fets amb el sistema antic.
+- Registra a «Assistència» (columnes A–E, com sempre). Detecta també els registres fets amb el sistema antic.
+- El resultat es queda a la pantalla fins que es prem «Escanejar el següent».
 - Si dues persones escanegen el mateix QR alhora, només una el registra (bloqueig a l'Apps Script).
 - Cerca per nom o DNI per a qui no porta el QR.
 - Sense cobertura: valida amb la llista descarregada (DNI amb hash, no en clar) i envia els registres quan torna la connexió.

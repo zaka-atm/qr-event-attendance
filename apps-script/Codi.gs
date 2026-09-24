@@ -7,7 +7,7 @@
  *
  *   - Comprova que el DNI sigui al full "Assistència Pagada" (si no hi és, NO passa).
  *   - Comprova que no estigui ja al full "Assistència" (si hi és, NO passa i diu quan i qui).
- *   - Si tot és correcte, afegeix la fila a "Assistència" amb la data, qui l'ha registrat i com.
+ *   - Si tot és correcte, afegeix la fila a "Assistència" (data, nom, DNI, número i tipus), com sempre.
  *
  * Instal·lació (5 minuts): mira el fitxer LLEGEIX-ME.md d'aquesta carpeta.
  *
@@ -28,7 +28,7 @@ var CONFIG_RECEPCIO = {
   // Full on es registra l'entrada
   FULL_ASSISTENCIA: 'Assistència',
   PRIMERA_FILA_ASSISTENCIA: 3,
-  COL_ASSISTENCIA: { data: 1, nom: 2, dni: 3, numero: 4, tipus: 5, registratPer: 6, metode: 7 }, // A…G
+  COL_ASSISTENCIA: { data: 1, nom: 2, dni: 3, numero: 4, tipus: 5 }, // A…E
 
   // 'unic'  = cada persona entra una sola vegada en tot el congrés
   // 'diari' = cada persona pot entrar una vegada cada dia (18, 19 i 20)
@@ -63,15 +63,13 @@ function gestionar(p) {
     Utilities.sleep(800); // frena qui intenti endevinar el codi
     return { ok: false, error: 'codi_incorrecte' };
   }
-  var personal = String(p.personal || '').trim().slice(0, 60) || 'Recepció';
-
   switch (p.accio) {
     case 'ping':
       return { ok: true, esdeveniment: CONFIG_RECEPCIO.ESDEVENIMENT, mode: CONFIG_RECEPCIO.MODE, estadistiques: estadistiques() };
     case 'sincronitzar':
       return sincronitzar();
     case 'registrar':
-      return registrar(p, personal);
+      return registrar(p);
     case 'cercar':
       return cercar(p.text);
     default:
@@ -138,7 +136,7 @@ function llegirAssistencia() {
   var ultima = f.getLastRow();
   if (ultima < CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA) return [];
   var c = CONFIG_RECEPCIO.COL_ASSISTENCIA;
-  var ncols = Math.max(c.data, c.dni, c.registratPer);
+  var ncols = Math.max(c.data, c.dni);
   var valors = f.getRange(CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA, 1, ultima - CONFIG_RECEPCIO.PRIMERA_FILA_ASSISTENCIA + 1, ncols).getValues();
   var registres = [];
   for (var i = 0; i < valors.length; i++) {
@@ -148,8 +146,7 @@ function llegirAssistencia() {
     var data = v[c.data - 1];
     registres.push({
       clau: clau,
-      data: data instanceof Date ? data : (data ? new Date(data) : null),
-      per: String(v[c.registratPer - 1] || '').trim()
+      data: data instanceof Date ? data : (data ? new Date(data) : null)
     });
   }
   return registres;
@@ -193,9 +190,9 @@ function publica(p) {
 
 /**
  * p.qr = { nom, dni, numero, tipus }  (llegit del QR)   o bé   p.fila = fila d'"Assistència Pagada"
- * p.metode = 'qr' | 'manual'   p.escanejatA = hora real (si ve de la cua sense connexió)
+ * p.escanejatA = hora real (si ve de la cua sense connexió)
  */
-function registrar(p, personal) {
+function registrar(p) {
   var clau = p.fila ? null : normDni(p.qr && p.qr.dni);
   if (!p.fila && !clau) return { ok: true, estat: 'qr_no_valid' };
 
@@ -224,7 +221,7 @@ function registrar(p, personal) {
     if (previ) {
       return {
         ok: true, estat: 'ja_registrat', persona: publica(persona),
-        registratA: previ.data ? previ.data.toISOString() : null, registratPer: previ.per,
+        registratA: previ.data ? previ.data.toISOString() : null,
         estadistiques: estadistiques(pagats, registres)
       };
     }
@@ -236,13 +233,11 @@ function registrar(p, personal) {
     fila[c.dni - 1] = persona.dni;
     fila[c.numero - 1] = persona.numero;
     fila[c.tipus - 1] = persona.tipus;
-    fila[c.registratPer - 1] = personal;
-    fila[c.metode - 1] = p.metode === 'manual' ? 'Manual' : (p.escanejatA ? 'QR (sense connexió)' : 'QR');
     for (var k = 0; k < fila.length; k++) if (fila[k] === undefined) fila[k] = '';
     full(CONFIG_RECEPCIO.FULL_ASSISTENCIA).appendRow(fila);
     SpreadsheetApp.flush();
 
-    registres.push({ clau: persona.clau, data: hora, per: personal });
+    registres.push({ clau: persona.clau, data: hora });
     return {
       ok: true, estat: 'correcte', persona: publica(persona), registratA: hora.toISOString(),
       estadistiques: estadistiques(pagats, registres)
@@ -278,7 +273,7 @@ function cercar(text) {
     var r = registreQueBloqueja(registres, p.clau, ara);
     resultats.push({
       nom: p.nom, dni: p.dni, tipus: p.tipus, fila: p.fila,
-      registratA: r && r.data ? r.data.toISOString() : null, registrat: !!r, registratPer: r ? r.per : ''
+      registratA: r && r.data ? r.data.toISOString() : null, registrat: !!r
     });
   }
   return { ok: true, resultats: resultats };

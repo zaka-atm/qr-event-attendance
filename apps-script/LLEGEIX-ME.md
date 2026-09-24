@@ -3,8 +3,8 @@
 La app de recepción (`recepcio/`) lee el QR que ya reciben los asistentes, saca el DNI y pregunta a este Apps Script si la persona puede pasar:
 
 - **No está en «Assistència Pagada»** → rojo, «No consta a la llista de pagaments».
-- **Ya está en «Assistència»** → rojo, con la hora y quién la registró.
-- **Todo correcto** → verde, y añade la fila en «Assistència» con fecha, nombre, DNI, número, tipo, **quién** la registró y **cómo** (QR, manual o sin conexión).
+- **Ya está en «Assistència»** → rojo, con la hora a la que entró.
+- **Todo correcto** → verde, y añade la fila en «Assistència» (fecha, nombre, DNI, número y tipo: columnas A–E, como siempre).
 
 Es un proyecto **nuevo**: tu «Script QR's Project» y el envío de correos no se tocan, y los QR ya enviados siguen funcionando igual.
 
@@ -45,8 +45,8 @@ Es la contraseña que escribirán tus compañeros de recepción. Sin ella, nadie
 
 ## 5. Abrir la app y compartirla
 
-- Abre la app de recepción (por ejemplo `https://zaka-atm.github.io/qr-event-attendance/`), pega la URL `/exec`, el código de acceso y tu nombre → **Començar a escanejar**.
-- Para no tener que pegar la URL en cada móvil, ponla en [`recepcio/config.js`](../recepcio/config.js) (`API_URL: "https://script.google.com/macros/s/…/exec"`). Así tus compañeros solo escriben el código y su nombre. **No pongas nunca el código de acceso en ese archivo** (es público).
+- Abre la app de recepción (`https://zaka-atm.github.io/qr-event-attendance/`), escribe el código de acceso → **Entrar**.
+- La URL `/exec` va en [`recepcio/config.js`](../recepcio/config.js) (`API_URL`), así nadie tiene que pegarla. **No pongas nunca el código de acceso en ese archivo** (es público).
 - En el móvil, **Añadir a pantalla de inicio** para abrirla como una app.
 
 ## Si cambias el código de Codi.gs
@@ -56,6 +56,6 @@ Es la contraseña que escribirán tus compañeros de recepción. Sin ella, nadie
 ## Preguntas rápidas
 
 - **¿Y si alguien registra con el sistema antiguo (el enlace del QR)?** La app lo detecta igual: busca el DNI en «Assistència», venga de donde venga.
-- **¿Qué pasa si dos compañeros escanean el mismo QR a la vez?** Solo uno lo registra; el otro ve «No pot passar · ja s'ha fet servir».
+- **¿Qué pasa si dos compañeros escanean el mismo QR a la vez?** Solo uno lo registra; el otro ve «No pot passar · Aquesta entrada ja s'ha utilitzat».
 - **¿Y sin cobertura?** La app descarga la lista de pagados (el DNI va cifrado con un hash, no en claro), valida con ella y guarda los registros para enviarlos cuando vuelva la conexión. Si mientras tanto otra puerta ya había registrado a esa persona, aparece en **Més → Incidències**.
-- **¿Columnas nuevas en «Assistència»?** Sí: F «Registrat per» y G «Mètode». Puedes ponerles cabecera en la fila 2.
+- **¿Toca otras columnas?** No: solo escribe A–E en «Assistència», igual que tu script actual.

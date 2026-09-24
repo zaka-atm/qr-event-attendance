@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Recepció · Congrés Islàmic de Catalunya</title>
-  <meta name="theme-color" content="#140F0E">
+  <meta name="theme-color" content="#120D0C">
   <meta name="robots" content="noindex">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -20,46 +20,56 @@
 </head>
 <body>
 
-<!-- ============ 1. Inici de sessió ============ -->
+<!-- ============ 1. Entrada amb el codi d'accés ============ -->
 <main class="vista inici" id="vista-inici" hidden>
   <div class="inici-cap">
-    <img class="marca" src="icons/icon.svg" width="56" height="56" alt="">
-    <p class="eyebrow" id="inici-esdeveniment">Congrés Islàmic de Catalunya</p>
+    <div class="logo-gran" data-logo>
+      <img alt="Entre Joves" data-logo-img>
+      <span class="logo-text" data-logo-text>Entre Joves</span>
+    </div>
+    <p class="eyebrow" id="inici-esdeveniment">XVII Congrés Islàmic de Catalunya</p>
     <h1>Recepció</h1>
-    <p class="inici-sub">Escaneja les entrades i comprova al moment si la persona pot passar.</p>
+    <p class="inici-sub">Escaneja les entrades dels assistents i comprova al moment si poden passar.</p>
   </div>
 
   <form class="targeta formulari" id="form-inici" novalidate>
     <div class="camp" id="camp-api">
       <label for="api-url">Adreça de connexió</label>
       <input id="api-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
-      <small>L'adreça que acaba en <b>/exec</b> de l'Apps Script de recepció.</small>
     </div>
     <div class="camp">
       <label for="codi">Codi d'accés</label>
-      <input id="codi" type="password" autocomplete="current-password" required>
-      <small>El codi que et passi l'organització.</small>
-    </div>
-    <div class="camp">
-      <label for="personal">El teu nom</label>
-      <input id="personal" type="text" autocomplete="given-name" maxlength="40" required placeholder="Ex.: Aisha">
-      <small>Sortirà al full com a «Registrat per».</small>
+      <div class="camp-clau">
+        <input id="codi" type="password" autocomplete="current-password" required placeholder="Escriu el codi">
+        <button type="button" class="veure-codi" id="veure-codi" aria-label="Mostrar el codi" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
     <p class="error" id="inici-error" role="alert" hidden></p>
-    <button class="boto principal" type="submit" id="inici-boto">Començar a escanejar</button>
+    <button class="boto principal gran" type="submit" id="inici-boto">
+      <span>Entrar</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
   </form>
 
-  <button class="enllac" type="button" id="boto-demo">Provar-ho en mode demostració</button>
+  <footer class="inici-peu">
+    <button class="enllac" type="button" id="boto-demo">Provar-ho amb dades de prova</button>
+    <span>Entre Joves · UCIDCAT</span>
+  </footer>
 </main>
 
 <!-- ============ 2. Escàner ============ -->
 <main class="vista escaner" id="vista-escaner" hidden>
   <header class="barra">
     <div class="barra-marca">
-      <img src="icons/icon.svg" width="36" height="36" alt="">
-      <div>
+      <div class="logo-petit" data-logo>
+        <img alt="Entre Joves" data-logo-img>
+        <span class="logo-text" data-logo-text>EJ</span>
+      </div>
+      <div class="barra-titol">
         <strong>Recepció</strong>
-        <span id="barra-personal">—</span>
+        <span id="barra-esdeveniment">XVII Congrés Islàmic de Catalunya</span>
       </div>
     </div>
     <button class="estat-xarxa" type="button" id="estat-xarxa" aria-live="polite">
@@ -67,12 +77,15 @@
     </button>
   </header>
 
-  <p class="avis-demo" id="avis-demo" hidden>Mode demostració · dades inventades</p>
+  <p class="avis-demo" id="avis-demo" hidden>Dades de prova · no es toca el full real</p>
 
-  <section class="comptador" aria-label="Registrats">
-    <div class="comptador-xifres">
-      <strong id="n-registrats">0</strong>
-      <span>registrats de <b id="n-pagats">0</b></span>
+  <section class="comptador" aria-label="Assistents que han entrat">
+    <div class="comptador-fila">
+      <div>
+        <span class="comptador-etiqueta">Han entrat</span>
+        <div class="comptador-xifres"><strong id="n-registrats">0</strong><span>/ <b id="n-pagats">0</b></span></div>
+      </div>
+      <span class="comptador-queden" id="n-queden"></span>
     </div>
     <div class="barra-progres" aria-hidden="true"><span id="progres"></span></div>
   </section>
@@ -83,62 +96,67 @@
       <span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span>
       <span class="linia"></span>
     </div>
-    <div class="visor-missatge" id="visor-missatge">Apunta al codi QR de l'entrada</div>
+    <div class="visor-missatge" id="visor-missatge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+      <span>Apunta la càmera al codi QR</span>
+    </div>
     <div class="visor-error" id="visor-error" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="4"/><path d="M3 3l18 18"/></svg>
       <p id="visor-error-text">No s'ha pogut obrir la càmera.</p>
       <div class="visor-error-accions">
         <button class="boto clar" type="button" id="reintentar-camera">Tornar-ho a provar</button>
         <label class="boto fosc" for="foto-qr">Fer una foto del QR</label>
       </div>
     </div>
-    <div class="comprovant" id="comprovant" hidden><span class="spinner" aria-hidden="true"></span>Comprovant…</div>
+    <div class="comprovant" id="comprovant" hidden><span class="spinner" aria-hidden="true"></span><span>Comprovant…</span></div>
   </section>
   <input class="ocult" id="foto-qr" type="file" accept="image/*" capture="environment">
 
   <nav class="accions" aria-label="Accions">
     <button type="button" class="accio destacada" id="obrir-cerca">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <span>Cercar</span>
+      <span>Cercar persona</span>
     </button>
-    <button type="button" class="accio" id="llanterna" hidden aria-pressed="false">
+    <button type="button" class="accio" id="llanterna" hidden aria-pressed="false" aria-label="Llanterna">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6l1 5-2 3v10a2 2 0 0 1-4 0V10L8 7z"/><path d="M12 13v2"/></svg>
-      <span>Llanterna</span>
     </button>
-    <button type="button" class="accio" id="obrir-historial">
+    <button type="button" class="accio" id="obrir-historial" aria-label="Historial">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
-      <span>Historial</span>
     </button>
-    <button type="button" class="accio" id="obrir-menu">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      <span>Més</span>
+    <button type="button" class="accio" id="obrir-menu" aria-label="Opcions">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
     </button>
   </nav>
 </main>
 
-<!-- ============ Resultat a pantalla completa ============ -->
+<!-- ============ Resultat (es queda fins que es prem «Escanejar el següent») ============ -->
 <div class="resultat" id="resultat" hidden role="alertdialog" aria-modal="true" aria-labelledby="res-titol" aria-describedby="res-motiu">
-  <div class="res-contingut">
-    <div class="res-icona" aria-hidden="true">
-      <svg class="i-ok" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-      <svg class="i-ko" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
-      <svg class="i-rep" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+  <div class="res-cos">
+    <div class="res-cap">
+      <div class="res-icona" aria-hidden="true">
+        <svg class="i-ok" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        <svg class="i-ko" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
+        <svg class="i-rep" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3h4v4"/></svg>
+      </div>
+      <h2 id="res-titol">Pot passar</h2>
+      <p class="res-motiu" id="res-motiu"></p>
     </div>
-    <h2 id="res-titol">Pot passar</h2>
-    <p class="res-motiu" id="res-motiu"></p>
 
-    <div class="res-persona" id="res-persona">
-      <strong id="res-nom"></strong>
+    <article class="res-fitxa" id="res-fitxa">
+      <span class="res-offline" id="res-offline" hidden>Sense connexió</span>
+      <strong class="res-nom" id="res-nom"></strong>
       <span class="res-tipus" id="res-tipus"></span>
-      <dl>
+      <dl class="res-dades">
         <div><dt>DNI / NIE</dt><dd id="res-dni"></dd></div>
-        <div id="res-hora-bloc"><dt id="res-hora-etiqueta">Hora</dt><dd id="res-hora"></dd></div>
+        <div id="res-hora-bloc"><dt id="res-hora-etiqueta">Hora d'entrada</dt><dd id="res-hora"></dd></div>
       </dl>
-    </div>
-
-    <p class="res-offline" id="res-offline" hidden>Sense connexió · comprovat amb la llista descarregada</p>
-    <button class="boto res-seguent" type="button" id="res-seguent">Escanejar el següent</button>
-    <div class="res-temps" aria-hidden="true"><span id="res-temps"></span></div>
+    </article>
   </div>
+
+  <button class="res-seguent" type="button" id="res-seguent">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/></svg>
+    <span>Escanejar el següent</span>
+  </button>
 </div>
 
 <!-- ============ Fulls inferiors ============ -->
@@ -147,8 +165,9 @@
     <h2 id="cerca-titol">Cercar persona</h2>
     <button class="tancar" type="button" data-tancar aria-label="Tancar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
-  <div class="camp">
+  <div class="camp camp-cerca">
     <label class="ocult" for="cerca-text">Nom o DNI</label>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="cerca-text" type="search" autocomplete="off" spellcheck="false" placeholder="Nom, cognom o DNI">
   </div>
   <p class="nota" id="cerca-nota">Per a qui no porta el QR o si no es pot llegir.</p>
@@ -157,11 +176,11 @@
 
 <dialog class="full-inferior" id="dlg-historial" aria-labelledby="hist-titol">
   <div class="full-cap">
-    <h2 id="hist-titol">Historial d'aquest mòbil</h2>
+    <h2 id="hist-titol">Últimes lectures</h2>
     <button class="tancar" type="button" data-tancar aria-label="Tancar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
   <ul class="llista" id="historial"></ul>
-  <p class="nota" id="historial-buit">Encara no has escanejat cap entrada.</p>
+  <p class="nota" id="historial-buit">Encara no has escanejat cap entrada en aquest mòbil.</p>
 </dialog>
 
 <dialog class="full-inferior" id="dlg-menu" aria-labelledby="menu-titol">
@@ -171,24 +190,15 @@
   </div>
   <ul class="opcions">
     <li>
-      <div><strong>Recepcionista</strong><span id="menu-personal"></span></div>
-      <button class="boto petit" type="button" id="canviar-personal">Canviar</button>
-    </li>
-    <li class="canvi-personal" id="canvi-personal" hidden>
-      <label class="ocult" for="nou-personal">Nou nom</label>
-      <input id="nou-personal" type="text" maxlength="40" placeholder="El teu nom">
-      <button class="boto petit principal" type="button" id="desar-personal">Desar</button>
-    </li>
-    <li>
-      <div><strong>Llista descarregada</strong><span id="menu-sincro">Encara no</span></div>
-      <button class="boto petit" type="button" id="sincronitzar">Sincronitzar</button>
+      <div><strong>Llista per treballar sense connexió</strong><span id="menu-sincro">Encara no s'ha descarregat</span></div>
+      <button class="boto petit" type="button" id="sincronitzar">Actualitzar</button>
     </li>
     <li id="menu-incidencies-fila" hidden>
       <div><strong>Incidències</strong><span id="menu-incidencies-text"></span></div>
       <button class="boto petit" type="button" id="veure-incidencies">Veure</button>
     </li>
     <li id="menu-proves" hidden>
-      <div><strong>Codis de prova</strong><span>QR inventats per provar l'escàner</span></div>
+      <div><strong>Codis QR de prova</strong><span>Per provar l'escàner amb dades inventades</span></div>
       <a class="boto petit" href="proves.html">Obrir</a>
     </li>
     <li>
@@ -199,7 +209,7 @@
   <div class="confirmar" id="confirmar-sortir" hidden>
     <p id="confirmar-sortir-text">Segur que vols tancar la sessió?</p>
     <div class="fila-botons">
-      <button class="boto perill" type="button" id="sortir-si">Sí, tancar</button>
+      <button class="boto perill-ple" type="button" id="sortir-si">Sí, tancar</button>
       <button class="boto" type="button" id="sortir-no">Cancel·lar</button>
     </div>
   </div>

@@ -102,17 +102,17 @@ async function obrir(navegador, base, backend, errors) {
     assert.match(req.headers()["content-type"], /^text\/plain/, "sense preflight CORS");
     route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: backend.peticio(req.postData()) });
   });
+  await ctx.route(/googleusercontent\.com|drive\.google\.com/, (route) => route.abort());
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`${base}/`);
   return { ctx, page, estat };
 }
 
-async function entrar(page, codi, nom) {
+async function entrar(page, codi) {
   assert.equal(await page.locator("#camp-api").isVisible(), false, "amb API_URL configurada no es demana l'adreça");
   await page.fill("#codi", codi);
-  await page.fill("#personal", nom);
-  await page.getByRole("button", { name: "Començar a escanejar" }).click();
+  await page.getByRole("button", { name: "Entrar" }).click();
 }
 
 // --- Proves -------------------------------------------------------------------------------
@@ -134,11 +134,12 @@ async function main() {
   const A = await obrir(navA, base, backend, errors);
 
   await A.page.getByRole("heading", { name: "Recepció" }).waitFor();
+  await A.page.locator(".logo-gran.sense-imatge .logo-text").waitFor(); // sense logo, es veu el nom
   await A.page.screenshot({ path: path.join(CAPTURES, "01-inici.png") });
-  await entrar(A.page, "dolent", "Aisha");
+  await entrar(A.page, "dolent");
   await A.page.getByText("Codi d'accés incorrecte.").waitFor();
   await A.page.fill("#codi", CODI);
-  await A.page.getByRole("button", { name: "Començar a escanejar" }).click();
+  await A.page.getByRole("button", { name: "Entrar" }).click();
 
   // La càmera veu el QR → verd
   await A.page.locator("#resultat.ok").waitFor({ timeout: 15000 });
@@ -148,26 +149,33 @@ async function main() {
   assert.equal(await A.page.locator("#res-dni").textContent(), "11111111H");
   await A.page.screenshot({ path: path.join(CAPTURES, "03-verd.png") });
   const fila = backend.fulls["Assistència"].files.at(-1);
-  assert.deepEqual(fila.slice(1), ["Aya El Idrissi", "11111111H", "600000001", "Pensió completa", "Aisha", "QR"]);
+  assert.deepEqual(fila.slice(1), ["Aya El Idrissi", "11111111H", "600000001", "Pensió completa"]);
+  assert.equal(fila.length, 5, "només A–E");
   console.log("✓ càmera: llegeix el QR del doGet, verd i registre al full");
 
   // Es tanca sol, i en tornar a llegir el mateix QR → vermell
-  await A.page.locator("#resultat").waitFor({ state: "hidden", timeout: 5000 });
+  // El verd NO es tanca sol: es queda fins que es prem el botó
+  await A.page.waitForTimeout(4000);
+  assert.ok(await A.page.locator("#resultat.ok").isVisible(), "el resultat es queda a la pantalla");
+  await A.page.getByRole("button", { name: "Escanejar el següent" }).click();
+  await A.page.locator("#resultat").waitFor({ state: "hidden" });
   await A.page.screenshot({ path: path.join(CAPTURES, "02-escaner.png") });
   await A.page.locator("#resultat.ko").waitFor({ timeout: 15000 });
   assert.equal(await A.page.locator("#res-titol").textContent(), "No pot passar");
-  assert.match(await A.page.locator("#res-motiu").textContent(), /ja s'ha fet servir a les \d\d:\d\d \(Aisha\)/);
+  assert.equal(await A.page.locator("#res-motiu").textContent(), "Aquesta entrada ja s'ha utilitzat");
+  assert.equal(await A.page.locator("#res-hora-etiqueta").textContent(), "Ja va entrar");
+  assert.match(await A.page.locator("#res-hora").textContent(), /^\d\d:\d\d$/);
   await A.page.screenshot({ path: path.join(CAPTURES, "04-vermell-repetit.png") });
   assert.equal(backend.fulls["Assistència"].files.length, 4, "no es duplica");
   assert.equal(await A.page.locator("#n-registrats").textContent(), "2");
   assert.equal(await A.page.locator("#n-pagats").textContent(), "4");
-  console.log("✓ càmera: el mateix QR per segona vegada → vermell amb l'hora i qui");
+  console.log("✓ càmera: el resultat es queda fins al botó; el mateix QR després → vermell amb l'hora");
   await navA.close();
 
   // ============ B: sense càmera ============
   const navB = await chromium.launch();
   const B = await obrir(navB, base, backend, errors);
-  await entrar(B.page, CODI, "Omar");
+  await entrar(B.page, CODI);
   await B.page.locator("#visor-error").waitFor();
 
   // Foto d'un QR d'algú que no ha pagat
@@ -193,7 +201,7 @@ async function main() {
   await B.page.getByRole("button", { name: "Sí, registrar" }).click();
   await B.page.locator("#resultat.ok").waitFor();
   assert.equal(await B.page.locator("#res-nom").textContent(), "Bilal Chakir");
-  assert.equal(backend.fulls["Assistència"].files.at(-1)[6], "Manual");
+  assert.equal(backend.fulls["Assistència"].files.at(-1)[1], "Bilal Chakir");
   await B.page.locator("#res-seguent").click();
   await B.page.getByRole("button", { name: "Cercar" }).click();
   await B.page.fill("#cerca-text", "salma");
@@ -215,7 +223,7 @@ async function main() {
   await B.page.locator("#estat-xarxa").click();
   await B.page.waitForFunction(() => document.getElementById("estat-text").textContent === "En línia", null, { timeout: 15000 });
   assert.equal(backend.fulls["Assistència"].files.length, filesAbans + 1);
-  assert.deepEqual(backend.fulls["Assistència"].files.at(-1).slice(1, 7), ["Nour Bennani", "55555555K", "600000005", "Pensió completa", "Omar", "QR (sense connexió)"]);
+  assert.deepEqual(backend.fulls["Assistència"].files.at(-1).slice(1), ["Nour Bennani", "55555555K", "600000005", "Pensió completa"]);
   console.log("✓ sense connexió: valida amb la llista i envia el registre quan torna la xarxa");
 
   await B.page.getByRole("button", { name: "Historial" }).click();
@@ -230,10 +238,10 @@ async function main() {
   const C = await ctxC.newPage();
   C.on("pageerror", (e) => errors.push(e.message));
   await C.goto(`${base}/`);
-  await C.getByRole("button", { name: "Provar-ho en mode demostració" }).click();
+  await C.getByRole("button", { name: "Provar-ho amb dades de prova" }).click();
   await C.locator("#avis-demo").waitFor();
   await C.waitForFunction(() => document.getElementById("n-pagats").textContent === "8");
-  await C.getByRole("button", { name: "Més" }).click();
+  await C.getByRole("button", { name: "Opcions" }).click();
   await C.getByRole("link", { name: "Obrir" }).click();
   await C.getByRole("heading", { name: "Codis de prova" }).waitFor();
   await C.screenshot({ path: path.join(CAPTURES, "09-codis-prova.png"), fullPage: false });

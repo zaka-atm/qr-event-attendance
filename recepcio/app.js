@@ -11,7 +11,6 @@
   const BATEC_MS = 20000;             // cada quant es reintenta la cua / es comprova la connexió
   const SINCRO_MS = 3 * 60000;        // cada quant es refresca la llista per al mode sense connexió
   const MATEIX_CODI_MS = 4000;        // no tornar a llegir el mateix QR just després
-  const AUTOTANCAR_OK_MS = 2500;
 
   // ------------------------------------------------------------------------
   // Emmagatzematge local (tot amb try/catch: pot no estar disponible)
@@ -24,7 +23,7 @@
   const K = { sessio: "recepcio-sessio", cache: "recepcio-cache", cua: "recepcio-cua", hist: "recepcio-historial", inc: "recepcio-incidencies" };
 
   const estat = {
-    sessio: guarda.get(K.sessio, null),      // { apiUrl, codi, personal, demo }
+    sessio: guarda.get(K.sessio, null),      // { apiUrl, codi, demo }
     cache: guarda.get(K.cache, null),        // { persones: [{h,n,t,f,r}], a, estadistiques }
     cua: guarda.get(K.cua, []),              // registres pendents d'enviar
     historial: guarda.get(K.hist, []),
@@ -100,7 +99,7 @@
 
   async function api(accio, dades = {}) {
     const s = estat.sessio;
-    const cos = { accio, codi: s.codi, personal: s.personal, ...dades };
+    const cos = { accio, codi: s.codi, ...dades };
     if (s.demo) return window.RecepcioDemo.gestionar(cos);
 
     const ctrl = new AbortController();
@@ -153,7 +152,6 @@
     const apiFixa = !!CFG.API_URL;
     $("camp-api").hidden = apiFixa;
     $("api-url").value = apiFixa ? CFG.API_URL : (previ?.apiUrl ?? guarda.get("recepcio-darrera-api", ""));
-    $("personal").value = previ?.personal ?? "";
   }
 
   function mostrarErrorInici(text) {
@@ -167,15 +165,13 @@
     $("inici-error").hidden = true;
     const apiUrl = (CFG.API_URL || $("api-url").value).trim();
     const codi = $("codi").value.trim();
-    const personal = $("personal").value.trim();
     if (!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(apiUrl)) return mostrarErrorInici("Enganxa l'adreça de l'Apps Script (comença per https://script.google.com/…).");
     if (!codi) return mostrarErrorInici("Escriu el codi d'accés.");
-    if (!personal) return mostrarErrorInici("Escriu el teu nom.");
 
     const boto = $("inici-boto");
     boto.disabled = true;
-    boto.textContent = "Connectant…";
-    estat.sessio = { apiUrl, codi, personal, demo: false };
+    boto.querySelector("span").textContent = "Connectant…";
+    estat.sessio = { apiUrl, codi, demo: false };
     try {
       const r = await api("ping");
       if (!r.ok) throw new Error(r.error || "error");
@@ -191,14 +187,14 @@
       else mostrarErrorInici("L'Apps Script ha respost amb un error. Revisa que estigui ben configurat.");
     } finally {
       boto.disabled = false;
-      boto.textContent = "Començar a escanejar";
+      boto.querySelector("span").textContent = "Entrar";
     }
   });
 
   $("boto-demo").addEventListener("click", async () => {
     desbloquejarAudio();
     await carregarDemo();
-    estat.sessio = { apiUrl: "", codi: "demo", personal: $("personal").value.trim() || "Recepció", demo: true };
+    estat.sessio = { apiUrl: "", codi: "demo", demo: true };
     guarda.set(K.sessio, estat.sessio);
     entrarEscaner();
   });
@@ -215,7 +211,7 @@
 
   function entrarEscaner() {
     const s = estat.sessio;
-    $("barra-personal").textContent = s.demo ? `${s.personal} · demostració` : s.personal;
+    $("barra-esdeveniment").textContent = CFG.ESDEVENIMENT || "Congrés Islàmic de Catalunya";
     $("avis-demo").hidden = !s.demo;
     $("menu-proves").hidden = !s.demo;
     mostrar("escaner");
@@ -237,6 +233,8 @@
     if (!e) return;
     $("n-registrats").textContent = String(e.registrats);
     $("n-pagats").textContent = String(e.pagats);
+    const queden = Math.max(0, e.pagats - e.registrats);
+    $("n-queden").textContent = queden === 0 && e.pagats ? "Tothom dins" : `Falten ${queden}`;
     $("progres").style.width = `${e.pagats ? Math.min(100, (e.registrats / e.pagats) * 100) : 0}%`;
     if (estat.cache) { estat.cache.estadistiques = e; guarda.set(K.cache, estat.cache); }
   }
@@ -318,7 +316,6 @@
             escanejatA: item.escanejatA,
             estat: r.estat,
             registratA: r.registratA || null,
-            registratPer: r.registratPer || "",
           });
           guarda.set(K.inc, estat.incidencies.slice(0, 100));
         }
@@ -402,68 +399,58 @@
   // ------------------------------------------------------------------------
   // Pantalla de resultat
   // ------------------------------------------------------------------------
-  let temporitzador = null;
   function mostrarResultat(r) {
     for (const d of document.querySelectorAll("dialog[open]")) d.close(); // el resultat sempre per sobre
     const caixa = $("resultat");
     const ok = r.estat === "correcte";
-    caixa.className = `resultat ${ok ? "ok" : "ko"} ${r.estat === "ja_registrat" ? "repetit" : "no-valid"}`;
+    const repetit = r.estat === "ja_registrat";
+    caixa.className = `resultat ${ok ? "ok" : "ko"} ${repetit ? "repetit" : "no-valid"}`;
 
     const persona = r.persona;
-    $("res-persona").hidden = !persona && !r.qrNom;
-    $("res-nom").textContent = persona?.nom || r.qrNom || "";
+    const nom = persona?.nom || r.qrNom || "";
+    $("res-fitxa").hidden = !nom;
+    $("res-nom").textContent = nom;
     $("res-tipus").textContent = persona?.tipus || "";
     $("res-dni").textContent = persona?.dni || r.qrDni || "—";
-    $("res-hora-bloc").hidden = !r.registratA;
+    $("res-hora-bloc").hidden = !r.registratA || !(ok || repetit);
+    $("res-hora-etiqueta").textContent = ok ? "Hora d'entrada" : "Ja va entrar";
     $("res-hora").textContent = r.registratA ? hora(r.registratA) : "";
     $("res-offline").hidden = !r.offline;
 
     const textos = {
-      correcte: ["Pot passar", "Entrada registrada. Benvingut/da!"],
-      ja_registrat: ["No pot passar", r.registratA
-        ? `Aquesta entrada ja s'ha fet servir ${ambHora(r.registratA)}${r.registratPer ? ` (${r.registratPer})` : ""}.`
-        : "Aquesta entrada ja s'ha fet servir."],
-      no_pagat: ["No pot passar", r.offline
-        ? "No és a la llista descarregada. Si ha pagat fa poc, comprova-ho quan tornis a tenir connexió."
-        : "No consta a la llista de pagaments. Envia la persona a l'Administració."],
-      qr_no_valid: ["Codi no vàlid", "Aquest QR no és una entrada del Congrés."],
-      sense_llista: ["Sense connexió", "Encara no s'ha pogut descarregar la llista. Connecta't a internet i torna-ho a provar."],
-      error_servidor: ["No s'ha pogut comprovar", "El full de càlcul ha donat un error. Torna-ho a provar o cerca la persona pel nom."],
+      correcte: ["Pot passar", "Entrada registrada correctament"],
+      ja_registrat: ["No pot passar", "Aquesta entrada ja s'ha utilitzat"],
+      no_pagat: ["No pot passar", r.offline ? "No apareix a la llista descarregada" : "No consta a la llista de pagaments"],
+      qr_no_valid: ["Codi no vàlid", "Aquest QR no és una entrada del Congrés"],
+      sense_llista: ["Sense connexió", "Connecta't a internet i torna-ho a provar"],
+      error_servidor: ["Error", "No s'ha pogut comprovar. Torna-ho a provar"],
     };
-    const [titol, motiu] = textos[r.estat] || ["No pot passar", "Resposta desconeguda."];
+    const [titol, motiu] = textos[r.estat] || ["No pot passar", ""];
     $("res-titol").textContent = titol;
     $("res-motiu").textContent = motiu;
-    $("res-hora-etiqueta").textContent = ok ? "Hora d'entrada" : "Primera entrada";
 
-    const seguent = $("res-seguent");
-    seguent.textContent = "Escanejar el següent";
+    // Es queda a la pantalla fins que es prem «Escanejar el següent».
     estat.mostrantResultat = true;
     caixa.hidden = false;
+    caixa.scrollTop = 0;
     so(ok);
-    seguent.focus({ preventScroll: true });
+    $("res-seguent").focus({ preventScroll: true });
 
-    afegirHistorial({ a: new Date().toISOString(), nom: persona?.nom || r.qrNom || "Codi no vàlid", estat: r.estat, tipus: persona?.tipus || "", offline: !!r.offline });
-
-    clearTimeout(temporitzador);
-    const barra = $("res-temps");
-    barra.classList.remove("corrent");
-    if (ok) {
-      barra.style.setProperty("--durada", `${AUTOTANCAR_OK_MS}ms`);
-      void barra.offsetWidth; // reinicia l'animació
-      barra.classList.add("corrent");
-      temporitzador = setTimeout(amagarResultat, AUTOTANCAR_OK_MS);
-    }
+    afegirHistorial({ a: new Date().toISOString(), nom: nom || "Codi no vàlid", estat: r.estat, tipus: persona?.tipus || "", offline: !!r.offline });
   }
 
   function amagarResultat() {
-    clearTimeout(temporitzador);
     $("resultat").hidden = true;
     estat.mostrantResultat = false;
-    estat.darrerCodiA = Date.now(); // el mateix QR encara és davant la càmera
+    estat.darrerCodiA = Date.now(); // el mateix QR encara pot ser davant la càmera
   }
-  $("res-seguent").addEventListener("click", (e) => { e.stopPropagation(); amagarResultat(); });
-  // El verd es tanca tocant a qualsevol lloc; el vermell només amb el botó, per no saltar-se'l.
-  $("resultat").addEventListener("click", () => { if ($("resultat").classList.contains("ok")) amagarResultat(); });
+  $("res-seguent").addEventListener("click", amagarResultat);
+  document.addEventListener("keydown", (e) => {
+    if (estat.mostrantResultat && (e.key === "Enter" || e.key === " ") && document.activeElement !== $("res-seguent")) {
+      e.preventDefault();
+      amagarResultat();
+    }
+  });
 
   // ------------------------------------------------------------------------
   // So, vibració i pantalla encesa
@@ -720,45 +707,28 @@
   // ------------------------------------------------------------------------
   function pintarMenu() {
     if (!estat.sessio) return;
-    $("menu-personal").textContent = estat.sessio.personal;
     $("menu-sincro").textContent = estat.cache?.a
       ? `${estat.cache.persones.length} persones · ${hora(estat.cache.a)}${estat.cua.length ? ` · ${estat.cua.length} pendents d'enviar` : ""}`
-      : "Encara no";
+      : "Encara no s'ha descarregat";
     $("menu-incidencies-fila").hidden = estat.incidencies.length === 0;
     $("menu-incidencies-text").textContent = `${estat.incidencies.length} per revisar`;
   }
 
   $("obrir-menu").addEventListener("click", () => {
     pintarMenu();
-    $("canvi-personal").hidden = true;
     $("confirmar-sortir").hidden = true;
     $("incidencies").hidden = true;
     $("dlg-menu").showModal();
   });
 
-  $("canviar-personal").addEventListener("click", () => {
-    $("nou-personal").value = estat.sessio.personal;
-    $("canvi-personal").hidden = false;
-    $("nou-personal").focus();
-  });
-  $("desar-personal").addEventListener("click", () => {
-    const nom = $("nou-personal").value.trim();
-    if (!nom) return;
-    estat.sessio.personal = nom;
-    guarda.set(K.sessio, estat.sessio);
-    $("barra-personal").textContent = estat.sessio.demo ? `${nom} · demostració` : nom;
-    $("canvi-personal").hidden = true;
-    pintarMenu();
-  });
-
   $("sincronitzar").addEventListener("click", async () => {
     const b = $("sincronitzar");
     b.disabled = true;
-    b.textContent = "Sincronitzant…";
+    b.textContent = "Actualitzant…";
     await batec(true);
     await sincronitzar();
     b.disabled = false;
-    b.textContent = "Sincronitzar";
+    b.textContent = "Actualitzar";
     pintarMenu();
   });
 
@@ -769,7 +739,7 @@
         el("div", {},
           el("strong", { textContent: i.nom }),
           el("small", { textContent: `Escanejat sense connexió ${ambHora(i.escanejatA)}. ${i.estat === "ja_registrat"
-            ? `Ja havia entrat ${i.registratA ? ambHora(i.registratA) : ""}${i.registratPer ? ` (${i.registratPer})` : ""}.`
+            ? `Ja havia entrat ${i.registratA ? ambHora(i.registratA) : "abans"}.`
             : i.estat === "no_pagat" ? "No consta com a pagat." : "No s'ha pogut registrar."}` })),
         el("span", { className: "xip avis", textContent: "Revisar" }),
       ))));
@@ -800,9 +770,38 @@
   }
 
   // ------------------------------------------------------------------------
+  // Logo (enllaç públic; si no carrega, es veu el nom en text)
+  // ------------------------------------------------------------------------
+  function carregarLogos() {
+    const urls = Array.isArray(CFG.LOGO) ? CFG.LOGO : CFG.LOGO ? [CFG.LOGO] : [];
+    for (const caixa of document.querySelectorAll("[data-logo]")) {
+      const img = caixa.querySelector("[data-logo-img]");
+      let i = 0;
+      const seguent = () => {
+        if (i >= urls.length) { caixa.classList.add("sense-imatge"); return; }
+        img.src = urls[i++];
+      };
+      img.addEventListener("error", seguent);
+      img.addEventListener("load", () => caixa.classList.remove("sense-imatge"));
+      if (!urls.length) caixa.classList.add("sense-imatge");
+      else seguent();
+    }
+  }
+
+  $("veure-codi").addEventListener("click", () => {
+    const input = $("codi");
+    const visible = input.type === "text";
+    input.type = visible ? "password" : "text";
+    $("veure-codi").setAttribute("aria-pressed", String(!visible));
+    $("veure-codi").setAttribute("aria-label", visible ? "Mostrar el codi" : "Amagar el codi");
+    input.focus();
+  });
+
+  // ------------------------------------------------------------------------
   // Arrencada
   // ------------------------------------------------------------------------
   async function arrencar() {
+    carregarLogos();
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
     if (estat.sessio) {
       if (estat.sessio.demo) await carregarDemo().catch(() => {});

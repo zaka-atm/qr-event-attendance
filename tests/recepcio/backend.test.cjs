@@ -94,19 +94,20 @@ assert.deepEqual(r.estadistiques, { pagats: 3, registrats: 1 });
 console.log("✓ codi d'accés i ping");
 
 // QR real: el paràmetre dni amb una altra forma d'escriure'l (minúscules, espais)
-r = call({ accio: "registrar", codi: CODI, personal: "Aisha", qr: { nom: "Marwa Test Prova", dni: " 12345678z ", numero: "600111222", tipus: "Pensió completa" } });
+r = call({ accio: "registrar", codi: CODI, qr: { nom: "Marwa Test Prova", dni: " 12345678z ", numero: "600111222", tipus: "Pensió completa" } });
 assert.equal(r.estat, "correcte", JSON.stringify(r));
 assert.equal(r.persona.nom, "Marwa Test Prova");
 assert.equal(r.persona.tipus, "Pensió completa");
 assert.deepEqual(r.estadistiques, { pagats: 3, registrats: 2 });
 const nova = assistencia.rows.at(-1);
 assert.equal(Object.prototype.toString.call(nova[0]), "[object Date]");
-assert.deepEqual([...nova.slice(1)], ["Marwa Test Prova", "12345678Z", "600111222", "Pensió completa", "Aisha", "QR"]);
-console.log("✓ entrada vàlida: s'afegeix a Assistència amb qui i com");
+assert.deepEqual([...nova.slice(1)], ["Marwa Test Prova", "12345678Z", "600111222", "Pensió completa"]);
+assert.equal(nova.length, 5, "només les columnes A–E, com el full original");
+console.log("✓ entrada vàlida: s'afegeix a Assistència (A–E)");
 
-r = call({ accio: "registrar", codi: CODI, personal: "Omar", qr: { dni: "12345678Z" } });
+r = call({ accio: "registrar", codi: CODI, qr: { dni: "12345678Z" } });
 assert.equal(r.estat, "ja_registrat");
-assert.equal(r.registratPer, "Aisha");
+assert.equal(r.registratPer, undefined, "no es guarda qui registra");
 assert.ok(r.registratA);
 assert.equal(assistencia.rows.length, 4, "no s'afegeix cap fila més");
 
@@ -127,9 +128,9 @@ assert.equal(r.resultats[0].registrat, false);
 r = call({ accio: "cercar", codi: CODI, text: "x1234567" });
 assert.equal(r.resultats[0].nom, "Fàtima El Amrani", "cerca pel DNI sense guions");
 const fila = r.resultats[0].fila;
-r = call({ accio: "registrar", codi: CODI, personal: "Omar", fila, metode: "manual" });
+r = call({ accio: "registrar", codi: CODI, fila });
 assert.equal(r.estat, "correcte");
-assert.equal(assistencia.rows.at(-1)[6], "Manual");
+assert.equal(assistencia.rows.at(-1)[1], "Fàtima El Amrani");
 r = call({ accio: "cercar", codi: CODI, text: "Fàtima" });
 assert.equal(r.resultats[0].registrat, true);
 console.log("✓ cerca i registre manual");
@@ -137,10 +138,10 @@ console.log("✓ cerca i registre manual");
 // Cua sense connexió: respecta l'hora de l'escaneig
 const abans = new Date(Date.now() - 5 * 60e3).toISOString();
 assistencia.rows = assistencia.rows.slice(0, 3);
-r = call({ accio: "registrar", codi: CODI, personal: "Porta 2", qr: { dni: "12345678Z" }, escanejatA: abans });
+r = call({ accio: "registrar", codi: CODI, qr: { dni: "12345678Z" }, escanejatA: abans });
 assert.equal(r.estat, "correcte");
 assert.equal(assistencia.rows.at(-1)[0].toISOString(), abans);
-assert.equal(assistencia.rows.at(-1)[6], "QR (sense connexió)");
+
 console.log("✓ registres sense connexió amb l'hora real");
 
 // Sincronització: sense DNI en clar
@@ -154,7 +155,7 @@ console.log("✓ sincronització amb hash del DNI");
 
 // Mode diari
 vm.runInContext("CONFIG_RECEPCIO.MODE = 'diari'", context);
-assistencia.rows = [assistencia.rows[0], assistencia.rows[1], [new Date(Date.now() - 36 * 3600e3), "Marwa Test Prova", "12345678Z", "", "", "Aisha", "QR"]];
+assistencia.rows = [assistencia.rows[0], assistencia.rows[1], [new Date(Date.now() - 36 * 3600e3), "Marwa Test Prova", "12345678Z", "", ""]];
 r = call({ accio: "registrar", codi: CODI, qr: { dni: "12345678Z" } });
 assert.equal(r.estat, "correcte", "en mode diari, ahir no compta");
 r = call({ accio: "registrar", codi: CODI, qr: { dni: "12345678Z" } });

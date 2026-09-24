@@ -23,8 +23,8 @@
     return {
       pagats: PERSONES.map(([correu, nom, dni, numero, tipus], i) => ({ fila: 3 + i, correu, nom, dni, numero, tipus })),
       assistencia: [
-        { clau: "44444444A", data: new Date(ara - 42 * 60e3).toISOString(), per: "Omar" },
-        { clau: "Y0000002Z", data: new Date(ara - 15 * 60e3).toISOString(), per: "Aisha" },
+        { clau: "44444444A", data: new Date(ara - 42 * 60e3).toISOString() },
+        { clau: "Y0000002Z", data: new Date(ara - 15 * 60e3).toISOString() },
       ],
     };
   }
@@ -68,7 +68,7 @@
           .slice(0, 20)
           .map((x) => {
             const r = bloqueja(db, normDni(x.dni));
-            return { ...publica(x), registrat: !!r, registratA: r?.data ?? null, registratPer: r?.per ?? "" };
+            return { ...publica(x), registrat: !!r, registratA: r?.data ?? null };
           });
         return { ok: true, resultats };
       }
@@ -80,10 +80,10 @@
         if (!persona) return { ok: true, estat: "no_pagat", estadistiques: estadistiques(db) };
         const previ = bloqueja(db, normDni(persona.dni));
         if (previ) {
-          return { ok: true, estat: "ja_registrat", persona: publica(persona), registratA: previ.data, registratPer: previ.per, estadistiques: estadistiques(db) };
+          return { ok: true, estat: "ja_registrat", persona: publica(persona), registratA: previ.data, estadistiques: estadistiques(db) };
         }
         const t = p.escanejatA && new Date(p.escanejatA) <= new Date() ? p.escanejatA : new Date().toISOString();
-        db.assistencia.push({ clau: normDni(persona.dni), data: t, per: p.personal || "Recepció", metode: p.metode });
+        db.assistencia.push({ clau: normDni(persona.dni), data: t });
         desar(db);
         return { ok: true, estat: "correcte", persona: publica(persona), registratA: t, estadistiques: estadistiques(db) };
       }
