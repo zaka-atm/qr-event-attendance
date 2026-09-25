@@ -11,7 +11,7 @@
   const TEMPS_API_MS = { registrar: 15000, cercar: 12000, ping: 12000, sincronitzar: 30000 };
   const TEMPS_SI_SEMBLA_OFFLINE_MS = 6000;
   const BATEC_MS = 20000;             // cada quant es reintenta la cua / es comprova la connexió
-  const SINCRO_MS = 3 * 60000;        // cada quant es refresca la llista per al mode sense connexió
+  const SINCRO_MS = 60000;            // cada quant es refresca la llista per al mode sense connexió
   const MATEIX_CODI_MS = 4000;        // no tornar a llegir el mateix QR just després
 
   // ------------------------------------------------------------------------
@@ -577,6 +577,8 @@
   let cercaTemps = null;
 
   $("obrir-cerca").addEventListener("click", () => {
+    // Si algú ha tocat el full a mà, que la llista del mòbil no quedi endarrerida.
+    if (Date.now() - darreraSincro > 20000) sincronitzar();
     $("cerca-text").value = "";
     $("cerca-resultats").replaceChildren();
     $("cerca-nota").textContent = "Per a qui no porta el QR o si no es pot llegir.";
@@ -600,7 +602,17 @@
       $("cerca-nota").textContent = "Cercant…";
       try {
         const r = await api("cercar", { text });
-        if (r.ok) resultats = r.resultats.map((x) => ({ ...x, offline: false }));
+        if (r.ok) {
+          resultats = r.resultats.map((x) => ({ ...x, offline: false }));
+          // El full és la font de veritat: la còpia del mòbil es corregeix amb el que diu.
+          if (estat.cache) {
+            for (const x of r.resultats) {
+              const p = estat.cache.persones.find((c) => c.f === x.fila);
+              if (p && !estat.cua.some((q) => q.h === p.h || q.fila === p.f)) p.r = x.registrat ? (x.registratA || "si") : null;
+            }
+            guarda.set(K.cache, estat.cache);
+          }
+        }
       } catch (e) {
         if (e instanceof SenseConnexio && !e.temps) posarEnLinia(false);
       }
