@@ -87,15 +87,12 @@
     <div class="barra-progres" aria-hidden="true"><span id="progres"></span></div>
   </section>
 
+  <div class="zona-escaneig">
   <section class="visor" id="visor">
     <video id="video" playsinline muted autoplay></video>
     <div class="marc" aria-hidden="true">
       <span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span>
       <span class="linia"></span>
-    </div>
-    <div class="visor-missatge" id="visor-missatge">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
-      <span>Apunta la càmera al codi QR</span>
     </div>
     <div class="visor-error" id="visor-error" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="4"/><path d="M3 3l18 18"/></svg>
@@ -107,6 +104,11 @@
     </div>
     <div class="comprovant" id="comprovant" hidden><span class="spinner" aria-hidden="true"></span><span>Comprovant…</span></div>
   </section>
+  <p class="visor-missatge" id="visor-missatge">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+    <span>Encaixa el codi QR dins del quadre</span>
+  </p>
+  </div>
   <input class="ocult" id="foto-qr" type="file" accept="image/*" capture="environment">
 
   <nav class="accions" aria-label="Accions">

@@ -523,19 +523,24 @@
     requestAnimationFrame(bucle);
   }
 
+  // Només es llegeix el tros de la imatge que queda dins del marc blanc: el visor és quadrat i mostra
+  // el centre del vídeo, i el marc n'ocupa el 78% (mateix valor que .marc a app.css).
+  const ZONA_LECTURA = 0.78;
+
   async function llegirFotograma() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const costat = Math.min(vw, vh) * ZONA_LECTURA;
+    const mida = Math.round(Math.min(costat, 640));
+    llenç.width = llenç.height = mida;
+    ctx.drawImage(video, (vw - costat) / 2, (vh - costat) / 2, costat, costat, 0, 0, mida, mida);
     if (detector) {
       try {
-        const trobats = await detector.detect(video);
+        const trobats = await detector.detect(llenç);
         return trobats[0]?.rawValue ?? null;
       } catch { detector = null; }
     }
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh || !window.jsQR) return null;
-    const costat = Math.min(vw, vh);
-    const mida = Math.min(costat, 640);
-    llenç.width = llenç.height = mida;
-    ctx.drawImage(video, (vw - costat) / 2, (vh - costat) / 2, costat, costat, 0, 0, mida, mida);
+    if (!window.jsQR) return null;
     const img = ctx.getImageData(0, 0, mida, mida);
     return window.jsQR(img.data, mida, mida, { inversionAttempts: "dontInvert" })?.data ?? null;
   }

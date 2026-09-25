@@ -46,13 +46,15 @@ function matriuQR(text) {
 }
 
 // Vídeo Y4M (el format que Chrome accepta com a càmera falsa) amb un QR al mig.
-function videoAmbQR(text, fitxer) {
+function videoAmbQR(text, fitxer, { cantonada = false } = {}) {
   const W = 640, H = 480;
   const q = matriuQR(text);
   const n = q.getModuleCount();
-  const escala = Math.floor(360 / (n + 8));
+  const escala = cantonada ? 3 : Math.floor(360 / (n + 8));
   const mida = escala * (n + 8);
-  const x0 = Math.floor((W - mida) / 2), y0 = Math.floor((H - mida) / 2);
+  // cantonada: QR a dalt a l'esquerra, dins de la imatge que es veu però fora del marc blanc
+  // (llegint tota la imatge es llegiria; llegint només el marc, no).
+  const x0 = cantonada ? 84 : Math.floor((W - mida) / 2), y0 = cantonada ? 4 : Math.floor((H - mida) / 2);
   const Y = Buffer.alloc(W * H, 60); // fons gris fosc, com una taula
   for (let y = 0; y < mida; y++) {
     for (let x = 0; x < mida; x++) {
@@ -127,6 +129,20 @@ async function main() {
     pagats: [P1, P2, P3, P4, P5],
     assistencia: [[new Date(Date.now() - 50 * 60e3), P3[1], P3[2], P3[3], P3[4]]], // registrada amb el doGet antic
   });
+
+  // ============ 0: un QR fora del marc no es llegeix ============
+  const videoFora = path.join(CAPTURES, "camera-fora.y4m");
+  videoAmbQR(urlQR(P1[1], P1[2], P1[3], P1[4]), videoFora, { cantonada: true });
+  const nav0 = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${videoFora}`] });
+  const Z = await obrir(nav0, base, backend, errors);
+  await entrar(Z.page, CODI);
+  await Z.page.locator("#vista-escaner").waitFor();
+  await Z.page.waitForTimeout(4000);
+  assert.equal(await Z.page.locator("#resultat").isVisible(), false, "un QR fora del quadre no s'ha de llegir");
+  assert.equal(backend.fulls["Assistència"].files.length, 3, "no s'ha registrat res");
+  await nav0.close();
+  fs.rmSync(videoFora);
+  console.log("✓ càmera: un QR fora del quadre no es llegeix");
 
   // ============ A: càmera falsa amb el QR de l'Aya ============
   const video = path.join(CAPTURES, "camera.y4m");
