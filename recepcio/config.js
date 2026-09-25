@@ -7,6 +7,7 @@ window.RECEPCIO = {
   API_URL: "https://script.google.com/macros/s/AKfycbwgXBrJ_95xgAKxN1hp88feCSQOAg__yoqJKtPb_AqgXTkD88Q1BEnxoHZL45kYRn8d/exec",
   ESDEVENIMENT: "XVII Congrés Islàmic de Catalunya",
   LOGO: [
+    "icons/logo.png", // el descarrega GitHub en publicar (scripts/logo_recepcio.py)
     "https://drive.google.com/thumbnail?id=1ysPCFM3gV7qLsTEhkTgAF6mnVWLuE4FK&sz=w1200",
     "https://lh3.googleusercontent.com/d/1ysPCFM3gV7qLsTEhkTgAF6mnVWLuE4FK",
     "https://drive.google.com/uc?export=view&id=1ysPCFM3gV7qLsTEhkTgAF6mnVWLuE4FK",

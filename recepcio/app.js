@@ -766,17 +766,6 @@
   // ------------------------------------------------------------------------
   // Logo (enllaç públic; si no carrega, es veu el nom en text)
   // ------------------------------------------------------------------------
-  // El logo que ha carregat es fa servir també com a icona de la pestanya (i de la pantalla d'inici a iOS).
-  let faviconPosat = false;
-  function posarFavicon(url) {
-    if (faviconPosat || !url) return;
-    faviconPosat = true;
-    const ico = $("favicon");
-    ico.removeAttribute("type");
-    ico.href = url;
-    $("favicon-apple").href = url;
-  }
-
   function carregarLogos() {
     const urls = Array.isArray(CFG.LOGO) ? CFG.LOGO : CFG.LOGO ? [CFG.LOGO] : [];
     for (const caixa of document.querySelectorAll("[data-logo]")) {
@@ -787,10 +776,7 @@
         img.src = urls[i++];
       };
       img.addEventListener("error", seguent);
-      img.addEventListener("load", () => {
-        caixa.classList.remove("sense-imatge");
-        posarFavicon(img.currentSrc || img.src);
-      });
+      img.addEventListener("load", () => caixa.classList.remove("sense-imatge"));
       if (!urls.length) caixa.classList.add("sense-imatge");
       else seguent();
     }
